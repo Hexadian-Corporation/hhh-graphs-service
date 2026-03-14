@@ -1,12 +1,10 @@
-from opyoid import Injectable
-
 from src.application.ports.inbound.graph_service import GraphService
 from src.application.ports.outbound.graph_repository import GraphRepository
 from src.domain.exceptions.graph_exceptions import GraphNotFoundError
 from src.domain.models.graph import Graph
 
 
-class GraphServiceImpl(GraphService, Injectable):
+class GraphServiceImpl(GraphService):
 
     def __init__(self, repository: GraphRepository) -> None:
         self._repository = repository

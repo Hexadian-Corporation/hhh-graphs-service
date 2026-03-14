@@ -10,7 +10,7 @@ from src.infrastructure.config.settings import Settings
 
 def create_app() -> FastAPI:
     settings = Settings()
-    injector = Injector(AppModule(settings))
+    injector = Injector([AppModule(settings)])
 
     graph_service = injector.inject(GraphService)
     init_router(graph_service)
