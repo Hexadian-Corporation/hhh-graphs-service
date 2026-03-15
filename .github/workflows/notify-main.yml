@@ -1,0 +1,17 @@
+name: Notify hhh-main
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    name: Trigger Submodule Sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch to hhh-main
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.PROJECT_TOKEN }}
+          repository: Hexadian-Corporation/hhh-main
+          event-type: submodule-updated
