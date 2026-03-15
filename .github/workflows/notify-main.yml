@@ -1,4 +1,4 @@
-name: Notify hhh-main
+name: Notify hexadian-hauling-helper
 
 on:
   push:
@@ -9,9 +9,9 @@ jobs:
     name: Trigger Submodule Sync
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch to hhh-main
+      - name: Dispatch to hexadian-hauling-helper
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.PROJECT_TOKEN }}
-          repository: Hexadian-Corporation/hhh-main
+          repository: Hexadian-Corporation/hexadian-hauling-helper
           event-type: submodule-updated

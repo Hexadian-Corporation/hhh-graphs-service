@@ -119,5 +119,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
         run: |
-          gh api repos/Hexadian-Corporation/hhh-main/dispatches \
+          gh api repos/Hexadian-Corporation/hexadian-hauling-helper/dispatches \
             -f event_type=unblock-check
