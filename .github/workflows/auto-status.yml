@@ -1,0 +1,115 @@
+name: Auto-status
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, ready_for_review, closed]
+
+permissions:
+  contents: read
+
+jobs:
+  update-status:
+    name: Update project status
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+      PROJECT_ID: "PVT_kwDOD_yaZ84BRv-S"
+      STATUS_FIELD_ID: "PVTSSF_lADOD_yaZ84BRv-Szg_fF9E"
+      # Status option IDs
+      IN_PROGRESS_ID: "7ede3e2f"
+      IN_REVIEW_ID: "68f37177"
+      DONE_ID: "fa71c4c1"
+    steps:
+      - name: Determine target status
+        id: status
+        run: |
+          EVENT="${{ github.event.action }}"
+          MERGED="${{ github.event.pull_request.merged }}"
+          DRAFT="${{ github.event.pull_request.draft }}"
+
+          if [ "$EVENT" = "closed" ] && [ "$MERGED" = "true" ]; then
+            echo "target=Done" >> "$GITHUB_OUTPUT"
+            echo "option_id=$DONE_ID" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "ready_for_review" ]; then
+            echo "target=In Review" >> "$GITHUB_OUTPUT"
+            echo "option_id=$IN_REVIEW_ID" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "opened" ] || [ "$EVENT" = "reopened" ]; then
+            if [ "$DRAFT" = "true" ]; then
+              echo "target=In Progress" >> "$GITHUB_OUTPUT"
+              echo "option_id=$IN_PROGRESS_ID" >> "$GITHUB_OUTPUT"
+            else
+              echo "target=In Review" >> "$GITHUB_OUTPUT"
+              echo "option_id=$IN_REVIEW_ID" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "target=" >> "$GITHUB_OUTPUT"
+            echo "option_id=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract linked issue numbers
+        if: steps.status.outputs.target != ''
+        id: issues
+        run: |
+          BODY=$(cat <<'PREOF'
+          ${{ github.event.pull_request.body }}
+          PREOF
+          )
+          # Extract issue numbers from "Fixes #N", "Closes #N", "Resolves #N"
+          NUMBERS=$(echo "$BODY" | grep -oiP '(?:fix(?:es)?|close[sd]?|resolve[sd]?)\s+(?:Hexadian-Corporation/hhh-[a-z-]+)?#(\d+)' | grep -oP '\d+' | sort -u | tr '\n' ' ')
+          echo "numbers=$NUMBERS" >> "$GITHUB_OUTPUT"
+          echo "Found issue numbers: $NUMBERS"
+
+      - name: Update project board status
+        if: steps.status.outputs.target != '' && steps.issues.outputs.numbers != ''
+        run: |
+          REPO="${{ github.event.repository.name }}"
+          OWNER="${{ github.event.repository.owner.login }}"
+          TARGET="${{ steps.status.outputs.target }}"
+          OPTION_ID="${{ steps.status.outputs.option_id }}"
+
+          for ISSUE_NUM in ${{ steps.issues.outputs.numbers }}; do
+            echo "Processing issue #$ISSUE_NUM -> $TARGET"
+
+            # Get the issue node ID
+            ISSUE_ID=$(gh api "repos/$OWNER/$REPO/issues/$ISSUE_NUM" --jq '.node_id' 2>/dev/null || echo "")
+            if [ -z "$ISSUE_ID" ]; then
+              echo "  Could not find issue #$ISSUE_NUM, skipping."
+              continue
+            fi
+
+            # Find the project item for this issue
+            ITEM_ID=$(gh api graphql -f query='
+              query($issueId: ID!) {
+                node(id: $issueId) {
+                  ... on Issue {
+                    projectItems(first: 10) {
+                      nodes {
+                        id
+                        project { id }
+                      }
+                    }
+                  }
+                }
+              }
+            ' -f "issueId=$ISSUE_ID" --jq ".data.node.projectItems.nodes[] | select(.project.id == \"$PROJECT_ID\") | .id" 2>/dev/null || echo "")
+
+            if [ -z "$ITEM_ID" ]; then
+              echo "  Issue #$ISSUE_NUM not found on project board, skipping."
+              continue
+            fi
+
+            # Update the status
+            gh api graphql -f query='
+              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: $projectId
+                  itemId: $itemId
+                  fieldId: $fieldId
+                  value: { singleSelectOptionId: $optionId }
+                }) { projectV2Item { id } }
+              }
+            ' -f "projectId=$PROJECT_ID" -f "itemId=$ITEM_ID" -f "fieldId=$STATUS_FIELD_ID" -f "optionId=$OPTION_ID"
+
+            echo "  Moved issue #$ISSUE_NUM to $TARGET"
+          done
