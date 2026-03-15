@@ -42,6 +42,20 @@ uv run pytest
 uv run ruff check .
 ```
 
+## Format
+
+```bash
+uv run ruff format .
+```
+
+## Run in Docker (full stack)
+
+From the monorepo root (`hhh-main`):
+
+```bash
+uv run hhh up
+```
+
 ## Environment Variables
 
 | Variable | Default | Description |

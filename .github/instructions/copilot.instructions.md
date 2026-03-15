@@ -90,6 +90,12 @@ The issue title and PR title must be **identical**. PR body must include `Fixes 
 |--------|---------|
 | Setup | `uv sync` |
 | Run (dev) | `uv run uvicorn src.main:app --reload --port 8004` |
+| Run in Docker | `uv run hhh up` (from monorepo root) |
 | Test | `uv run pytest` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
+
+## Maintenance Rules
+
+- **Keep the README up to date.** When you add, remove, or change commands, environment variables, API endpoints, domain models, or architecture — update `README.md`. The README is the source of truth for developers.
+- **Keep the monorepo CLI service registry up to date.** When adding or removing a service, update `SERVICES`, `FRONTENDS`, `COMPOSE_SERVICE_MAP`, and `SERVICE_ALIASES` in `hhh-main/hhh_cli/__init__.py`, plus the `docker-compose.yml` entry.
