@@ -26,10 +26,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --extra dev
       - name: Run tests with coverage
-        run: uv run pytest --cov=src --cov-report=term-missing --cov-fail-under=90
+        run: uv run pytest --cov=src --cov-report=xml --cov-report=term-missing
+      - name: Check coverage on changed lines
+        run: uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=90
 
   copilot-fix:
     name: Request Copilot Fix
@@ -46,13 +50,21 @@ jobs:
             const failures = [];
             if (lintResult === 'failure') failures.push('**Lint & Format** — fix linting or formatting errors');
             if (testResult === 'failure') failures.push('**Tests & Coverage** — fix failing tests or improve coverage to ≥90%');
+            const prUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${context.issue.number}`;
+            const suggestion = '@copilot Please fix the CI failures listed above.';
             const body = [
-              '## CI Failed',
+              '## :x: CI Failed',
               '',
               'The following checks failed:',
               failures.map(f => `- ${f}`).join('\n'),
               '',
-              '@copilot Please fix the CI failures listed above.',
+              '---',
+              '',
+              ':robot: **Ask Copilot to fix this** — copy the message below and paste it as a new comment on this PR:',
+              '',
+              '```',
+              suggestion,
+              '```',
             ].join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
