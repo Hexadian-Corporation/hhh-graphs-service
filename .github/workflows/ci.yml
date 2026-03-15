@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   lint:
@@ -29,3 +30,33 @@ jobs:
       - run: uv sync --extra dev
       - name: Run tests with coverage
         run: uv run pytest --cov=src --cov-report=term-missing --cov-fail-under=90
+
+  copilot-fix:
+    name: Request Copilot Fix
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    if: failure()
+    steps:
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const lintResult = '${{ needs.lint.result }}';
+            const testResult = '${{ needs.test.result }}';
+            const failures = [];
+            if (lintResult === 'failure') failures.push('**Lint & Format** — fix linting or formatting errors');
+            if (testResult === 'failure') failures.push('**Tests & Coverage** — fix failing tests or improve coverage to ≥90%');
+            const body = [
+              '## CI Failed',
+              '',
+              'The following checks failed:',
+              failures.map(f => `- ${f}`).join('\n'),
+              '',
+              '@copilot Please fix the CI failures listed above.',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
