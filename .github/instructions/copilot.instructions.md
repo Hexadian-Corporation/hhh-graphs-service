@@ -1,4 +1,4 @@
-<critical>Note: This is a living document and will be updated as we refine our processes. Always refer back to this for the latest guidelines. Update whenever necessary. Anytime you discover a new bug or issue, document it here to maintain a comprehensive history.</critical>
+<critical>Note: This is a living document and will be updated as we refine our processes. Always refer back to this for the latest guidelines. Update whenever necessary.</critical>
 
 # Copilot Instructions — hhh-graphs-service
 
@@ -48,6 +48,24 @@ src/
 - **Node** — `location_id` (references maps-service Location.id), `label`
 - **Edge** — `source_id`, `target_id`, `distance`, `travel_type` (quantum/scm/on_foot), `travel_time_seconds`
 
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `HHH_GRAPHS_MONGO_URI` | `mongodb://localhost:27017` | MongoDB connection string |
+| `HHH_GRAPHS_MONGO_DB` | `hhh_graphs` | Database name |
+| `HHH_GRAPHS_PORT` | `8004` | Service port |
+
+## API
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/graphs/` | Create a graph |
+| `GET` | `/graphs/{id}` | Get graph by ID |
+| `GET` | `/graphs/` | List all graphs |
+| `DELETE` | `/graphs/{id}` | Delete a graph |
+| `GET` | `/health` | Health check |
+
 ## Issue & PR Title Format
 
 **Format:** `<type>(graphs): description`
@@ -68,8 +86,10 @@ The issue title and PR title must be **identical**. PR body must include `Fixes 
 
 ## Tooling
 
-| Tool | Command |
-|------|---------|
-| Run tests | `uv run pytest` |
-| Lint | `uv run --with ruff ruff check .` |
-| Format | `uv run --with ruff ruff format .` |
+| Action | Command |
+|--------|---------|
+| Setup | `uv sync` |
+| Run (dev) | `uv run uvicorn src.main:app --reload --port 8004` |
+| Test | `uv run pytest` |
+| Lint | `uv run ruff check .` |
+| Format | `uv run ruff format .` |
