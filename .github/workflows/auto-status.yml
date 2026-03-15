@@ -113,3 +113,11 @@ jobs:
 
             echo "  Moved issue #$ISSUE_NUM to $TARGET"
           done
+
+      - name: Trigger unblock check
+        if: steps.status.outputs.target == 'Done'
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        run: |
+          gh api repos/Hexadian-Corporation/hhh-main/dispatches \
+            -f event_type=unblock-check
