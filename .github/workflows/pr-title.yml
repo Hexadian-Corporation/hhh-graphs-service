@@ -14,11 +14,12 @@ jobs:
         with:
           script: |
             const title = context.payload.pull_request.title;
-            const pattern = /^(GRAPHS-\d+|chore|fix|ci|docs|feat|refactor|test|build|perf|style|revert): .+$/;
+            const pattern = /^(chore|fix|ci|docs|feat|refactor|test|build|perf|style|revert)\(GH-\d+\): .+$/;
             if (!pattern.test(title)) {
               core.setFailed(
                 `PR title "${title}" doesn't match the required format.\n` +
-                `Expected: "GRAPHS-N: description" or "<type>: description"\n` +
+                `Expected: "<type>(GH-<issue>): description"\n` +
+                `Example: "feat(GH-1): Add domain models"\n` +
                 `Allowed types: chore, fix, ci, docs, feat, refactor, test, build, perf, style, revert`
               );
             }
