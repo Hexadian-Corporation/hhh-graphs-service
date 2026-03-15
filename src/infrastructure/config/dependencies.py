@@ -1,5 +1,5 @@
 from opyoid import Module, SingletonScope
-from pymongo import MongoClient
+from pymongo import ASCENDING, MongoClient
 from pymongo.collection import Collection
 
 from src.application.ports.inbound.graph_service import GraphService
@@ -10,7 +10,6 @@ from src.infrastructure.config.settings import Settings
 
 
 class AppModule(Module):
-
     def __init__(self, settings: Settings) -> None:
         super().__init__()
         self._settings = settings
@@ -19,6 +18,9 @@ class AppModule(Module):
         client = MongoClient(self._settings.mongo_uri)
         db = client[self._settings.mongo_db]
         collection = db["graphs"]
+
+        collection.create_index([("name", ASCENDING)])
+        collection.create_index([("nodes.location_id", ASCENDING)])
 
         self.bind(Collection, to_instance=collection, scope=SingletonScope)
         self.bind(GraphRepository, to_class=MongoGraphRepository, scope=SingletonScope)

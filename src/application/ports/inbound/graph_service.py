@@ -4,7 +4,6 @@ from src.domain.models.graph import Graph
 
 
 class GraphService(ABC):
-
     @abstractmethod
     def create(self, graph: Graph) -> Graph: ...
 

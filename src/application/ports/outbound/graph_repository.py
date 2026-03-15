@@ -4,7 +4,6 @@ from src.domain.models.graph import Graph
 
 
 class GraphRepository(ABC):
-
     @abstractmethod
     def save(self, graph: Graph) -> Graph: ...
 
