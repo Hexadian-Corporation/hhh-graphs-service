@@ -3,7 +3,6 @@ from src.infrastructure.adapters.inbound.api.graph_dto import EdgeDTO, GraphDTO,
 
 
 class GraphApiMapper:
-
     @staticmethod
     def to_domain(dto: GraphDTO) -> Graph:
         return Graph(

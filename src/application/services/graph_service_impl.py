@@ -9,7 +9,6 @@ _LIST_ALL_KEY = "all"
 
 
 class GraphServiceImpl(GraphService):
-
     def __init__(self, repository: GraphRepository) -> None:
         self._repository = repository
         self._graph_cache: TTLCache[str, Graph] = TTLCache(maxsize=64, ttl=600)

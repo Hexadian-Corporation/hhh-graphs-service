@@ -2,15 +2,11 @@ from src.domain.models.graph import Edge, Graph, Node
 
 
 class GraphPersistenceMapper:
-
     @staticmethod
     def to_document(graph: Graph) -> dict:
         return {
             "name": graph.name,
-            "nodes": [
-                {"location_id": n.location_id, "label": n.label}
-                for n in graph.nodes
-            ],
+            "nodes": [{"location_id": n.location_id, "label": n.label} for n in graph.nodes],
             "edges": [
                 {
                     "source_id": e.source_id,
@@ -28,10 +24,7 @@ class GraphPersistenceMapper:
         return Graph(
             id=str(doc["_id"]),
             name=doc.get("name", ""),
-            nodes=[
-                Node(location_id=n["location_id"], label=n.get("label", ""))
-                for n in doc.get("nodes", [])
-            ],
+            nodes=[Node(location_id=n["location_id"], label=n.get("label", "")) for n in doc.get("nodes", [])],
             edges=[
                 Edge(
                     source_id=e["source_id"],

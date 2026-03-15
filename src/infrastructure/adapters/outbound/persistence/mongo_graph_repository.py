@@ -7,7 +7,6 @@ from src.infrastructure.adapters.outbound.persistence.graph_persistence_mapper i
 
 
 class MongoGraphRepository(GraphRepository):
-
     def __init__(self, collection: Collection) -> None:
         self._collection = collection
 

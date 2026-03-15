@@ -27,7 +27,7 @@ def get_graph(graph_id: str) -> GraphDTO:
     try:
         graph = _graph_service.get(graph_id)
     except GraphNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return GraphApiMapper.to_dto(graph)
 
 
@@ -41,4 +41,4 @@ def delete_graph(graph_id: str) -> None:
     try:
         _graph_service.delete(graph_id)
     except GraphNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
