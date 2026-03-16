@@ -21,6 +21,6 @@ jobs:
                 `Expected: "<type>(<scope>): description"\n` +
                 `Example: "fix(backoffice): error on update contract fixed"\n` +
                 `Allowed types: chore, fix, ci, docs, feat, refactor, test, build, perf, style, revert\n` +
-                `Common scopes: contracts, ships, maps, graphs, routes, auth, frontend, backoffice, main`
+                `Common scopes: contracts, ships, maps, graphs, routes, auth, auth-common, frontend, backoffice, main, commodities`
               );
             }
