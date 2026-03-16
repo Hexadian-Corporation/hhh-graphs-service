@@ -99,3 +99,8 @@ The issue title and PR title must be **identical**. PR body must include `Fixes 
 
 - **Keep the README up to date.** When you add, remove, or change commands, environment variables, API endpoints, domain models, or architecture — update `README.md`. The README is the source of truth for developers.
 - **Keep the monorepo CLI service registry up to date.** When adding or removing a service, update `SERVICES`, `FRONTENDS`, `COMPOSE_SERVICE_MAP`, and `SERVICE_ALIASES` in `hexadian-hauling-helper/hhh_cli/__init__.py`, plus the `docker-compose.yml` entry.
+
+## Organization Profile Maintenance
+
+- **Keep the org profile README up to date.** When repositories, ports, architecture, workflows, security policy, or ownership change, update Hexadian-Corporation/.github/profile/README.md in the public .github repo.
+- **Treat the org profile as canonical org summary.** Ensure descriptions in this repo remain consistent with the organization profile README.
