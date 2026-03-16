@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from src.domain.models.graph import Edge, Graph, Node
 
-SECRET = "test-jwt-secret-that-is-long-enough-for-hs256"
+SECRET = "test-jwt-secret-that-is-long-enough-for-hs256"  # gitleaks:allow
 
 
 def _make_token(permissions: list[str] | None = None, expired: bool = False) -> str:

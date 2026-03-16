@@ -1,0 +1,7 @@
+title = "gitleaks config"
+
+[allowlist]
+  description = "Test JWT fixture constants are not real credentials"
+  stopwords = [
+    "test-jwt-secret",
+  ]
