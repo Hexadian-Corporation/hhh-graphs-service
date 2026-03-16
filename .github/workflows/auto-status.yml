@@ -47,7 +47,7 @@ jobs:
             echo "option_id=" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Extract linked issue numbers
+      - name: Extract linked issue references
         if: steps.status.outputs.target != ''
         id: issues
         run: |
@@ -55,26 +55,36 @@ jobs:
           ${{ github.event.pull_request.body }}
           PREOF
           )
-          # Extract issue numbers from "Fixes #N", "Closes #N", "Resolves #N"
-          NUMBERS=$(echo "$BODY" | grep -oiP '(?:fix(?:es)?|close[sd]?|resolve[sd]?)\s+(?:Hexadian-Corporation/hhh-[a-z-]+)?#(\d+)' | grep -oP '\d+' | sort -u | tr '\n' ' ')
-          echo "numbers=$NUMBERS" >> "$GITHUB_OUTPUT"
-          echo "Found issue numbers: $NUMBERS"
+          DEFAULT_REPO="${{ github.event.repository.name }}"
+          # Extract "repo:number" pairs from "Fixes #N", "Closes #N", "Resolves #N"
+          # Supports both local (#N) and cross-repo (Org/repo#N) references
+          REFS=$(echo "$BODY" | grep -oiP '(?:fix(?:es)?|close[sd]?|resolve[sd]?)\s+(?:Hexadian-Corporation/([A-Za-z0-9._-]+))?#(\d+)' | while read -r line; do
+            repo=$(echo "$line" | grep -oP 'Hexadian-Corporation/\K[A-Za-z0-9._-]+' || true)
+            num=$(echo "$line" | grep -oP '#\K\d+')
+            if [ -z "$repo" ]; then
+              repo="$DEFAULT_REPO"
+            fi
+            echo "${repo}:${num}"
+          done | sort -u | tr '\n' ' ')
+          echo "refs=$REFS" >> "$GITHUB_OUTPUT"
+          echo "Found issue references: $REFS"
 
       - name: Update project board status
-        if: steps.status.outputs.target != '' && steps.issues.outputs.numbers != ''
+        if: steps.status.outputs.target != '' && steps.issues.outputs.refs != ''
         run: |
-          REPO="${{ github.event.repository.name }}"
           OWNER="${{ github.event.repository.owner.login }}"
           TARGET="${{ steps.status.outputs.target }}"
           OPTION_ID="${{ steps.status.outputs.option_id }}"
 
-          for ISSUE_NUM in ${{ steps.issues.outputs.numbers }}; do
-            echo "Processing issue #$ISSUE_NUM -> $TARGET"
+          for REF in ${{ steps.issues.outputs.refs }}; do
+            REPO="${REF%%:*}"
+            ISSUE_NUM="${REF##*:}"
+            echo "Processing $REPO#$ISSUE_NUM -> $TARGET"
 
             # Get the issue node ID
             ISSUE_ID=$(gh api "repos/$OWNER/$REPO/issues/$ISSUE_NUM" --jq '.node_id' 2>/dev/null || echo "")
             if [ -z "$ISSUE_ID" ]; then
-              echo "  Could not find issue #$ISSUE_NUM, skipping."
+              echo "  Could not find issue $REPO#$ISSUE_NUM, skipping."
               continue
             fi
 

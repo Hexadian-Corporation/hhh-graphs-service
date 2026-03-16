@@ -5,6 +5,7 @@ on:
     branches: [main]
 
 permissions:
+  actions: read
   contents: read
   pull-requests: write
 
@@ -41,34 +42,107 @@ jobs:
     needs: [lint, test]
     if: failure()
     steps:
-      - name: Comment on PR
+      - name: Collect failure details and comment on PR
         uses: actions/github-script@v7
         with:
           script: |
-            const lintResult = '${{ needs.lint.result }}';
-            const testResult = '${{ needs.test.result }}';
-            const failures = [];
-            if (lintResult === 'failure') failures.push('**Lint & Format** — fix linting or formatting errors');
-            if (testResult === 'failure') failures.push('**Tests & Coverage** — fix failing tests or improve coverage to ≥90%');
-            const prUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${context.issue.number}`;
-            const suggestion = '@copilot Please fix the CI failures listed above.';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const runId = context.runId;
+
+            const { data: { jobs } } = await github.rest.actions.listJobsForWorkflowRun({
+              owner, repo, run_id: runId,
+            });
+
+            const failedJobs = jobs.filter(j => j.conclusion === 'failure');
+            const sections = [];
+
+            for (const job of failedJobs) {
+              let logs = '';
+              try {
+                const res = await github.rest.actions.downloadJobLogsForWorkflowRun({
+                  owner, repo, job_id: job.id,
+                });
+                const raw = String(res.data).replace(/\x1b\[[0-9;]*m/g, '');
+                const lines = raw.split('\n');
+                logs = lines.slice(-60).join('\n').trim();
+                if (logs.length > 3000) logs = '...\n' + logs.slice(-3000);
+              } catch {
+                logs = '(could not retrieve logs)';
+              }
+
+              let desc = `The \`${job.name}\` check failed.`;
+              let fix = '**How to fix:** Review the error output above and address each issue.';
+
+              if (job.name === 'Lint & Format') {
+                desc = 'The `ruff check .` and/or `ruff format --check .` commands found issues.';
+                fix = [
+                  '**How to fix locally:**',
+                  '1. Run `uv run ruff check . --fix` to auto-fix lint issues',
+                  '2. Run `uv run ruff format .` to auto-fix formatting',
+                  '3. For issues ruff cannot auto-fix, manually edit the files at the lines indicated above',
+                ].join('\n');
+              } else if (job.name === 'Tests & Coverage') {
+                desc = 'The `pytest` tests failed or `diff-cover` reported <90% coverage on changed lines.';
+                fix = [
+                  '**How to fix:**',
+                  '1. Run `uv run pytest --cov=src --cov-report=term-missing` to reproduce locally',
+                  '2. Fix any failing tests — check assertion errors, import errors, or exceptions in the output above',
+                  '3. If coverage is below 90% on changed lines, add unit tests for the uncovered code paths',
+                  '4. Run `uv run diff-cover coverage.xml --compare-branch=origin/main` to verify coverage locally',
+                ].join('\n');
+              }
+
+              sections.push({ name: job.name, url: job.html_url, logs, desc, fix });
+            }
+
+            if (sections.length === 0) return;
+
+            const failureDetails = sections.map(s => [
+              `### :x: ${s.name}`,
+              `[View full logs](${s.url})`,
+              '',
+              s.desc,
+              '',
+              '```',
+              s.logs,
+              '```',
+              '',
+              s.fix,
+            ].join('\n')).join('\n\n');
+
+            const copilotSections = sections.map(s => [
+              `## ${s.name} (FAILED)`,
+              s.desc,
+              'Error output:',
+              '```',
+              s.logs,
+              '```',
+              s.fix,
+            ].join('\n')).join('\n\n');
+
+            const suggestion = [
+              '@copilot The CI pipeline for this PR has failed with the errors shown below. Please fix every issue.\n',
+              copilotSections,
+              '\nFix all issues above and push to this PR branch.',
+            ].join('\n');
+
             const body = [
               '## :x: CI Failed',
               '',
-              'The following checks failed:',
-              failures.map(f => `- ${f}`).join('\n'),
+              failureDetails,
               '',
               '---',
               '',
               ':robot: **Ask Copilot to fix this** — copy the message below and paste it as a new comment on this PR:',
               '',
-              '```',
+              '`````',
               suggestion,
-              '```',
+              '`````',
             ].join('\n');
+
             await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
+              owner, repo,
               issue_number: context.issue.number,
               body,
             });
