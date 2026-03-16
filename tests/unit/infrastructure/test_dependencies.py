@@ -6,7 +6,7 @@ from src.infrastructure.config.settings import Settings
 
 class TestAppModuleIndexes:
     def test_indexes_created_on_configure(self) -> None:
-        settings = Settings(mongo_uri="mongodb://localhost:27017", mongo_db="test_db")
+        settings = Settings(jwt_secret="test-secret", mongo_uri="mongodb://localhost:27017", mongo_db="test_db")
 
         mock_collection = MagicMock()
         mock_db = MagicMock()

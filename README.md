@@ -63,6 +63,22 @@ uv run hhh up
 | `HHH_GRAPHS_MONGO_URI` | `mongodb://localhost:27017` | MongoDB connection string |
 | `HHH_GRAPHS_MONGO_DB` | `hhh_graphs` | Database name |
 | `HHH_GRAPHS_PORT` | `8004` | Service port |
+| `HHH_GRAPHS_JWT_SECRET` | — (required) | Shared secret for JWT signature verification |
+| `HHH_GRAPHS_JWT_ALGORITHM` | `HS256` | JWT signing algorithm |
+
+## Authentication
+
+All endpoints (except `/health`) require a valid JWT Bearer token. Tokens are validated using [`hexadian-auth-common`](https://github.com/Hexadian-Corporation/hexadian-auth-common).
+
+### Permissions
+
+| Endpoint | Permission |
+|---|---|
+| `GET /health` | **Public** |
+| `POST /graphs/` | `graphs:write` |
+| `GET /graphs/` | `graphs:read` |
+| `GET /graphs/{id}` | `graphs:read` |
+| `DELETE /graphs/{id}` | `graphs:delete` |
 
 ## API
 

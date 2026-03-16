@@ -1,3 +1,4 @@
+from hexadian_auth_common.fastapi import JWTAuthDependency
 from opyoid import Module, SingletonScope
 from pymongo import ASCENDING, MongoClient
 from pymongo.collection import Collection
@@ -22,6 +23,12 @@ class AppModule(Module):
         collection.create_index([("name", ASCENDING)])
         collection.create_index([("nodes.location_id", ASCENDING)])
 
+        jwt_auth = JWTAuthDependency(
+            secret=self._settings.jwt_secret,
+            algorithm=self._settings.jwt_algorithm,
+        )
+
         self.bind(Collection, to_instance=collection, scope=SingletonScope)
         self.bind(GraphRepository, to_class=MongoGraphRepository, scope=SingletonScope)
         self.bind(GraphService, to_class=GraphServiceImpl, scope=SingletonScope)
+        self.bind(JWTAuthDependency, to_instance=jwt_auth, scope=SingletonScope)

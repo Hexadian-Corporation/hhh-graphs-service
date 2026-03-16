@@ -11,6 +11,7 @@ build/
 .ruff_cache/
 .pytest_cache/
 .coverage
+coverage.xml
 .mypy_cache/
 
 # VS Code Copilot local instruction files (only track copilot.instructions.md)

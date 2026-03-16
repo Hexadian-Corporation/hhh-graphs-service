@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
     "cachetools>=7.0.5",
+    "hexadian-auth-common[fastapi]",
 ]
 
 [project.optional-dependencies]
@@ -50,3 +51,6 @@ exclude_lines = [
     "if __name__ == .__main__.",
     "if TYPE_CHECKING:",
 ]
+
+[tool.uv.sources]
+hexadian-auth-common = { git = "https://github.com/Hexadian-Corporation/hexadian-auth-common.git" }
