@@ -23,7 +23,7 @@ class TestCreateApp:
     def test_returns_fastapi_app(self) -> None:
         mock_client = _make_mock_mongo()
         with (
-            patch.dict(os.environ, {"HHH_GRAPHS_JWT_SECRET": SECRET}),
+            patch.dict(os.environ, {"HEXADIAN_AUTH_JWT_SECRET": SECRET}),
             patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_client),
         ):
             from src.main import create_app
@@ -35,7 +35,7 @@ class TestCreateApp:
     def test_overrides_stub_auth_with_jwt_dependency(self) -> None:
         mock_client = _make_mock_mongo()
         with (
-            patch.dict(os.environ, {"HHH_GRAPHS_JWT_SECRET": SECRET}),
+            patch.dict(os.environ, {"HEXADIAN_AUTH_JWT_SECRET": SECRET}),
             patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_client),
         ):
             from src.main import create_app
@@ -48,7 +48,7 @@ class TestCreateApp:
     def test_health_endpoint_is_public(self) -> None:
         mock_client = _make_mock_mongo()
         with (
-            patch.dict(os.environ, {"HHH_GRAPHS_JWT_SECRET": SECRET}),
+            patch.dict(os.environ, {"HEXADIAN_AUTH_JWT_SECRET": SECRET}),
             patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_client),
         ):
             from src.main import create_app
