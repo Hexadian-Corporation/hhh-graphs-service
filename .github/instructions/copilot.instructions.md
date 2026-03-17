@@ -106,4 +106,3 @@ The issue title and PR title must be **identical**. PR body must include `Fixes 
 - **Treat the org profile as canonical org summary.** Ensure descriptions in this repo remain consistent with the organization profile README.
 
 Remember, before finishing: resolve any merge conflict and merge source (PR origin and destination) branch into current one.
-Remember, before finishing: resolve any merge conflict and merge source (PR origin and destination) branch into current one.
