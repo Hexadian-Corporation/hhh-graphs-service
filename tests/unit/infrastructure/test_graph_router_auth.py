@@ -122,7 +122,7 @@ class TestAuthenticationRequired:
 
 class TestExpiredToken:
     def test_expired_token_returns_401(self, client: TestClient) -> None:
-        token = _make_token(permissions=["graphs:read"], expired=True)
+        token = _make_token(permissions=["hhh:graphs:read"], expired=True)
         resp = client.get("/graphs/", headers=_auth_header(token))
         assert resp.status_code == 401
         assert "expired" in resp.json()["detail"].lower()
@@ -138,22 +138,22 @@ class TestInsufficientPermissions:
     """Endpoints return 403 when the token lacks the required permission."""
 
     def test_create_graph_requires_write_permission(self, client: TestClient) -> None:
-        token = _make_token(permissions=["graphs:read"])
+        token = _make_token(permissions=["hhh:graphs:read"])
         resp = client.post("/graphs/", json=_graph_payload(), headers=_auth_header(token))
         assert resp.status_code == 403
 
     def test_get_graph_requires_read_permission(self, client: TestClient) -> None:
-        token = _make_token(permissions=["graphs:write"])
+        token = _make_token(permissions=["hhh:graphs:write"])
         resp = client.get("/graphs/abc123", headers=_auth_header(token))
         assert resp.status_code == 403
 
     def test_list_graphs_requires_read_permission(self, client: TestClient) -> None:
-        token = _make_token(permissions=["graphs:write"])
+        token = _make_token(permissions=["hhh:graphs:write"])
         resp = client.get("/graphs/", headers=_auth_header(token))
         assert resp.status_code == 403
 
     def test_delete_graph_requires_delete_permission(self, client: TestClient) -> None:
-        token = _make_token(permissions=["graphs:read"])
+        token = _make_token(permissions=["hhh:graphs:read"])
         resp = client.delete("/graphs/abc123", headers=_auth_header(token))
         assert resp.status_code == 403
 
@@ -163,27 +163,27 @@ class TestAuthorizedAccess:
 
     def test_create_graph_with_write_permission(self, client: TestClient, mock_graph_service: MagicMock) -> None:
         mock_graph_service.create.return_value = _sample_graph()
-        token = _make_token(permissions=["graphs:write"])
+        token = _make_token(permissions=["hhh:graphs:write"])
         resp = client.post("/graphs/", json=_graph_payload(), headers=_auth_header(token))
         assert resp.status_code == 201
         assert resp.json()["name"] == "TestGraph"
 
     def test_get_graph_with_read_permission(self, client: TestClient, mock_graph_service: MagicMock) -> None:
         mock_graph_service.get.return_value = _sample_graph()
-        token = _make_token(permissions=["graphs:read"])
+        token = _make_token(permissions=["hhh:graphs:read"])
         resp = client.get("/graphs/abc123", headers=_auth_header(token))
         assert resp.status_code == 200
         assert resp.json()["name"] == "TestGraph"
 
     def test_list_graphs_with_read_permission(self, client: TestClient, mock_graph_service: MagicMock) -> None:
         mock_graph_service.list_all.return_value = [_sample_graph()]
-        token = _make_token(permissions=["graphs:read"])
+        token = _make_token(permissions=["hhh:graphs:read"])
         resp = client.get("/graphs/", headers=_auth_header(token))
         assert resp.status_code == 200
         assert len(resp.json()) == 1
 
     def test_delete_graph_with_delete_permission(self, client: TestClient, mock_graph_service: MagicMock) -> None:
         mock_graph_service.delete.return_value = None
-        token = _make_token(permissions=["graphs:delete"])
+        token = _make_token(permissions=["hhh:graphs:delete"])
         resp = client.delete("/graphs/abc123", headers=_auth_header(token))
         assert resp.status_code == 204

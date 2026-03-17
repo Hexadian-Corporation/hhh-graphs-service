@@ -75,10 +75,10 @@ All endpoints (except `/health`) require a valid JWT Bearer token. Tokens are va
 | Endpoint | Permission |
 |---|---|
 | `GET /health` | **Public** |
-| `POST /graphs/` | `graphs:write` |
-| `GET /graphs/` | `graphs:read` |
-| `GET /graphs/{id}` | `graphs:read` |
-| `DELETE /graphs/{id}` | `graphs:delete` |
+| `POST /graphs/` | `hhh:graphs:write` |
+| `GET /graphs/` | `hhh:graphs:read` |
+| `GET /graphs/{id}` | `hhh:graphs:read` |
+| `DELETE /graphs/{id}` | `hhh:graphs:delete` |
 
 ## API
 
