@@ -84,6 +84,16 @@ The issue title and PR title must be **identical**. PR body must include `Fixes 
 - Type hints on all functions
 - Squash merge only — PR title becomes the commit message
 
+## CI & Branch Protection
+
+**Required status checks** (all with `app_id: 15368` — GitHub Actions):
+- `Lint & Format` — `ruff check .` + `ruff format --check .`
+- `Tests & Coverage` — `pytest` + `diff-cover` (≥90% on changed lines)
+- `Validate PR Title` — conventional commit format
+- `Secret Scan` — gitleaks
+
+> **Critical:** Required status checks must always use `app_id: 15368` (GitHub Actions). Using `app_id: null` causes checks to freeze as "Expected — Waiting for status" for any check name not previously reported on `main`. See BUG-011.
+
 ## Tooling
 
 | Action | Command |
