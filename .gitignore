@@ -17,3 +17,4 @@ coverage.xml
 # VS Code Copilot local instruction files (only track copilot.instructions.md)
 .github/instructions/*
 !.github/instructions/copilot.instructions.md
+!.github/instructions/development-workflow.instructions.md

@@ -1,5 +1,7 @@
 ﻿<critical>Note: This is a living document and will be updated as we refine our processes. Always refer back to this for the latest guidelines. Update whenever necessary.</critical>
 
+<critical>**Development Workflow:** All changes go through a branch + PR — no direct commits to `main` unless explicitly instructed. See `.github/instructions/development-workflow.instructions.md`.</critical>
+
 # Copilot Instructions — hhh-graphs-service
 
 ## Project Context
