@@ -59,6 +59,7 @@ jobs:
 
             for (const job of failedJobs) {
               let logs = '';
+              let summary = '';
               try {
                 const res = await github.rest.actions.downloadJobLogsForWorkflowRun({
                   owner, repo, job_id: job.id,
@@ -67,6 +68,27 @@ jobs:
                 const lines = raw.split('\n');
                 logs = lines.slice(-60).join('\n').trim();
                 if (logs.length > 3000) logs = '...\n' + logs.slice(-3000);
+                if (job.name === 'Lint & Format') {
+                  const errMatch = raw.match(/Found (\d+) error/);
+                  const fmtMatch = raw.match(/(\d+) files? would be reformatted/);
+                  const parts = [];
+                  if (errMatch) parts.push(`${errMatch[1]} lint errors`);
+                  if (fmtMatch) parts.push(`${fmtMatch[1]} files need reformatting`);
+                  if (parts.length) summary = parts.join(', ');
+                } else if (job.name === 'Tests & Coverage') {
+                  const failMatch = raw.match(/(\d+) failed/);
+                  const passMatch = raw.match(/(\d+) passed/);
+                  const covMatch = raw.match(/Diff Coverage: (\d+(?:\.\d+)?)%/);
+                  const failCov = raw.match(/Failure: (\d+(?:\.\d+)?)% is below (\d+)%/);
+                  const parts = [];
+                  if (failMatch) {
+                    const p = passMatch ? ` (${passMatch[1]} passed)` : '';
+                    parts.push(`${failMatch[1]} tests failed${p}`);
+                  }
+                  if (failCov) parts.push(`diff-cover: ${failCov[1]}% (required ≥${failCov[2]}%)`);
+                  else if (covMatch) parts.push(`diff-cover: ${covMatch[1]}%`);
+                  if (parts.length) summary = parts.join(' · ');
+                }
               } catch {
                 logs = '(could not retrieve logs)';
               }
@@ -93,7 +115,7 @@ jobs:
                 ].join('\n');
               }
 
-              sections.push({ name: job.name, url: job.html_url, logs, desc, fix });
+              sections.push({ name: job.name, url: job.html_url, logs, desc, fix, summary });
             }
 
             if (sections.length === 0) return;
@@ -103,6 +125,7 @@ jobs:
               `[View full logs](${s.url})`,
               '',
               s.desc,
+              ...(s.summary ? [`\n> **Cause:** ${s.summary}`] : []),
               '',
               '```',
               s.logs,
@@ -114,6 +137,7 @@ jobs:
             const copilotSections = sections.map(s => [
               `## ${s.name} (FAILED)`,
               s.desc,
+              ...(s.summary ? [`Cause: ${s.summary}`] : []),
               'Error output:',
               '```',
               s.logs,

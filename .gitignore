@@ -18,3 +18,4 @@ coverage.xml
 .github/instructions/*
 !.github/instructions/copilot.instructions.md
 !.github/instructions/development-workflow.instructions.md
+!.github/instructions/bug-history.instructions.md
