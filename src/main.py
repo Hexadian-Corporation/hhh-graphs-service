@@ -1,5 +1,6 @@
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from hexadian_auth_common.fastapi import (
     JWTAuthDependency,
     _stub_jwt_auth,
@@ -22,6 +23,13 @@ def create_app() -> FastAPI:
     init_router(graph_service)
 
     app = FastAPI(title=settings.app_name)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:3000", "http://localhost:3001"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.dependency_overrides[_stub_jwt_auth] = jwt_auth
     register_exception_handlers(app)
     app.include_router(router)
