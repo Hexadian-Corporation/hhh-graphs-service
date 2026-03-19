@@ -5,7 +5,7 @@ applyTo: Anytime you interact with GitHub.
 
 <critical>Note: This is a living document and will be updated as we refine our processes. Always refer back to this for the latest guidelines. Update whenever necessary.</critical>
 
-<critical>When creating a pull request from an issue, always mention the issue number in the PR body using `Fixes #N`, `Closes #N`, or `Resolves #N`.</critical>
+<critical>When creating a pull request from an issue, always mention the issue number in the PR description using `Fixes #N`, `Closes #N`, or `Resolves #N`.</critical>
 
 # GitHub Workflow — H³ Project Management
 
