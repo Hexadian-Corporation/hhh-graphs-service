@@ -10,5 +10,6 @@ class Settings(BaseSettings):
     port: int = 8004
     jwt_secret: str = Field(default="change-me-in-production", validation_alias="HEXADIAN_AUTH_JWT_SECRET")
     jwt_algorithm: str = "HS256"
+    maps_service_url: str = "http://localhost:8003"
 
     model_config = {"env_prefix": "HHH_GRAPHS_", "populate_by_name": True}
