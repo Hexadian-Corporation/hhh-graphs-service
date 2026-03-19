@@ -6,12 +6,6 @@ on:
 
 jobs:
   notify:
-    name: Trigger Submodule Sync
-    runs-on: ubuntu-latest
-    steps:
-      - name: Dispatch to hexadian-hauling-helper
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.PROJECT_TOKEN }}
-          repository: Hexadian-Corporation/hexadian-hauling-helper
-          event-type: submodule-updated
+    uses: Hexadian-Corporation/.github/.github/workflows/notify-main-reusable.yml@main
+    secrets:
+      PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}

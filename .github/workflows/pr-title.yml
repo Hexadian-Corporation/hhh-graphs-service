@@ -5,22 +5,5 @@ on:
     types: [opened, reopened, edited, synchronize]
 
 jobs:
-  validate:
-    name: Validate PR Title
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check title format
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const title = context.payload.pull_request.title;
-            const pattern = /^(chore|fix|ci|docs|feat|refactor|test|build|perf|style|revert)\([a-z][a-z0-9-]*\): .+$/;
-            if (!pattern.test(title)) {
-              core.setFailed(
-                `PR title "${title}" doesn't match the required format.\n` +
-                `Expected: "<type>(<scope>): description"\n` +
-                `Example: "fix(backoffice): error on update contract fixed"\n` +
-                `Allowed types: chore, fix, ci, docs, feat, refactor, test, build, perf, style, revert\n` +
-                `Common scopes: contracts, ships, maps, graphs, routes, auth, auth-common, frontend, backoffice, main, commodities`
-              );
-            }
+  pr-title:
+    uses: Hexadian-Corporation/.github/.github/workflows/pr-title-reusable.yml@main
