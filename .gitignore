@@ -19,3 +19,4 @@ coverage.xml
 !.github/instructions/copilot.instructions.md
 !.github/instructions/development-workflow.instructions.md
 !.github/instructions/bug-history.instructions.md
+!.github/instructions/gh-workflow.instructions.md
