@@ -13,6 +13,7 @@ dependencies = [
     "pydantic-settings>=2.7",
     "cachetools>=7.0.5",
     "hexadian-auth-common[fastapi]",
+    "httpx>=0.28",
 ]
 
 [project.optional-dependencies]
@@ -20,7 +21,6 @@ dev = [
     "pytest>=8.3",
     "pytest-cov>=6.0",
     "diff-cover>=9.0",
-    "httpx>=0.28",
     "ruff>=0.9",
 ]
 
