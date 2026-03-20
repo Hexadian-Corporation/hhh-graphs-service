@@ -68,6 +68,9 @@ class TestPostGraph:
         assert body["name"] == "MinimalGraph"
         assert body["nodes"] == []
         assert body["edges"] == []
+        assert body["stale"] is False
+        assert body["stale_reason"] is None
+        assert body["stale_since"] is None
 
     def test_create_multiple_graphs(self, client: TestClient) -> None:
         for i in range(3):
@@ -122,6 +125,9 @@ class TestGetGraphs:
         assert "hash" in graph
         assert "nodes" in graph
         assert "edges" in graph
+        assert "stale" in graph
+        assert "stale_reason" in graph
+        assert "stale_since" in graph
 
 
 # ---------------------------------------------------------------------------

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -26,5 +28,8 @@ class GraphDTO(BaseModel):
     hash: str = ""
     nodes: list[NodeDTO] = Field(default_factory=list)
     edges: list[EdgeDTO] = Field(default_factory=list)
+    stale: bool = False
+    stale_reason: str | None = None
+    stale_since: datetime | None = None
 
     model_config = {"populate_by_name": True}

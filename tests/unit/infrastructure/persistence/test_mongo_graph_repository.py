@@ -13,6 +13,9 @@ def _make_doc(hash_value: str = "abc") -> dict:
         "hash": hash_value,
         "nodes": [],
         "edges": [],
+        "stale": False,
+        "stale_reason": None,
+        "stale_since": None,
     }
 
 

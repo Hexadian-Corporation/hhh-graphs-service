@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import datetime
 
 
 @dataclass
@@ -23,3 +24,6 @@ class Graph:
     hash: str = ""
     nodes: list[Node] = field(default_factory=list)
     edges: list[Edge] = field(default_factory=list)
+    stale: bool = False
+    stale_reason: str | None = None
+    stale_since: datetime | None = None
