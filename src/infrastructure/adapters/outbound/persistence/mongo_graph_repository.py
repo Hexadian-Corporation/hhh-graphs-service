@@ -31,3 +31,9 @@ class MongoGraphRepository(GraphRepository):
     def delete(self, graph_id: str) -> bool:
         result = self._collection.delete_one({"_id": ObjectId(graph_id)})
         return result.deleted_count > 0
+
+    def find_by_hash(self, hash_value: str) -> Graph | None:
+        doc = self._collection.find_one({"hash": hash_value})
+        if doc is None:
+            return None
+        return GraphPersistenceMapper.to_domain(doc)

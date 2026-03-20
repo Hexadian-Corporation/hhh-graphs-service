@@ -6,6 +6,7 @@ class GraphPersistenceMapper:
     def to_document(graph: Graph) -> dict:
         return {
             "name": graph.name,
+            "hash": graph.hash,
             "nodes": [{"location_id": n.location_id, "label": n.label} for n in graph.nodes],
             "edges": [
                 {
@@ -24,6 +25,7 @@ class GraphPersistenceMapper:
         return Graph(
             id=str(doc["_id"]),
             name=doc.get("name", ""),
+            hash=doc.get("hash", ""),
             nodes=[Node(location_id=n["location_id"], label=n.get("label", "")) for n in doc.get("nodes", [])],
             edges=[
                 Edge(

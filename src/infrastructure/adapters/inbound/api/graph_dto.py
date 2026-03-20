@@ -17,6 +17,7 @@ class EdgeDTO(BaseModel):
 class GraphDTO(BaseModel):
     id: str | None = Field(default=None, alias="_id")
     name: str
+    hash: str = ""
     nodes: list[NodeDTO] = Field(default_factory=list)
     edges: list[EdgeDTO] = Field(default_factory=list)
 

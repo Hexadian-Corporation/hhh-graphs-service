@@ -20,5 +20,6 @@ class Node:
 class Graph:
     id: str | None = None
     name: str = ""
+    hash: str = ""
     nodes: list[Node] = field(default_factory=list)
     edges: list[Edge] = field(default_factory=list)

@@ -24,6 +24,7 @@ class AppModule(Module):
 
         collection.create_index([("name", ASCENDING)])
         collection.create_index([("nodes.location_id", ASCENDING)])
+        collection.create_index("hash", unique=True, sparse=True)
 
         jwt_auth = JWTAuthDependency(
             secret=self._settings.jwt_secret,

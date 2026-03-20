@@ -20,7 +20,8 @@ class TestAppModuleIndexes:
 
         mock_collection.create_index.assert_any_call([("name", 1)])
         mock_collection.create_index.assert_any_call([("nodes.location_id", 1)])
-        assert mock_collection.create_index.call_count == 2
+        mock_collection.create_index.assert_any_call("hash", unique=True, sparse=True)
+        assert mock_collection.create_index.call_count == 3
 
     def test_maps_client_bound_with_configured_url(self) -> None:
         settings = Settings(
