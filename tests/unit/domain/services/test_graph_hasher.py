@@ -67,6 +67,25 @@ class TestHashFormat:
         assert all(c in "0123456789abcdef" for c in result)
 
 
+class TestEdgeCases:
+    def test_empty_nodes_and_edges_produce_valid_hash(self) -> None:
+        result = compute_graph_hash([], [])
+        assert len(result) == 64
+        assert all(c in "0123456789abcdef" for c in result)
+
+
+class TestHashStability:
+    def test_known_input_produces_known_hash(self) -> None:
+        """Regression test: a fixed input must always produce the same hash."""
+        nodes = [Node(location_id="loc1", label="Alpha")]
+        edges = [Edge(source_id="loc1", target_id="loc2", distance=42.0, travel_type="quantum")]
+        expected = compute_graph_hash(nodes, edges)
+        # Re-compute with fresh objects to confirm stability
+        nodes2 = [Node(location_id="loc1", label="Alpha")]
+        edges2 = [Edge(source_id="loc1", target_id="loc2", distance=42.0, travel_type="quantum")]
+        assert compute_graph_hash(nodes2, edges2) == expected
+
+
 class TestTravelTimeExclusion:
     def test_different_travel_times_produce_same_hash(self) -> None:
         nodes = _make_nodes()

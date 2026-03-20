@@ -27,6 +27,12 @@ def _make_graph(graph_id: str = "abc123", name: str = "TestGraph") -> Graph:
     return Graph(id=graph_id, name=name, nodes=[Node(location_id="loc1", label="A")])
 
 
+class TestCacheTTL:
+    def test_cache_ttl_is_3600(self, service: GraphServiceImpl) -> None:
+        assert service._graph_cache.ttl == 3600
+        assert service._list_cache.ttl == 3600
+
+
 class TestCreate:
     def test_create_delegates_to_repository(self, service: GraphServiceImpl, mock_repo: MagicMock) -> None:
         graph = _make_graph(graph_id=None)
