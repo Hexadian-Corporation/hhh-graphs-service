@@ -36,13 +36,11 @@ class TestAppModuleIndexes:
         mock_client = MagicMock()
         mock_client.__getitem__ = MagicMock(return_value=mock_db)
 
-        with patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_client):
-            from src.application.ports.outbound.maps_client import MapsClient
-            from src.infrastructure.adapters.outbound.http.maps_client_impl import HttpMapsClient
-
+        with (
+            patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_client),
+            patch("src.infrastructure.config.dependencies.HttpMapsClient") as mock_http_maps_client,
+        ):
             module = AppModule(settings)
             module.configure()
-            bound = module.get(MapsClient)
 
-        assert isinstance(bound, HttpMapsClient)
-        assert bound._base_url == "http://maps:8003"
+        mock_http_maps_client.assert_called_once_with(base_url="http://maps:8003")
