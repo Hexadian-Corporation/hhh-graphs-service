@@ -39,4 +39,7 @@ class GraphApiMapper:
                 )
                 for e in graph.edges
             ],
+            stale=graph.stale,
+            stale_reason=graph.stale_reason,
+            stale_since=graph.stale_since,
         )
