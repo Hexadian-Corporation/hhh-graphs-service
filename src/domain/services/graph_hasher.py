@@ -9,6 +9,10 @@ def compute_graph_hash(nodes: list[Node], edges: list[Edge]) -> str:
 
     Nodes are sorted by location_id. Edges are sorted by (source_id, target_id).
     This ensures the same graph always produces the same hash regardless of input order.
+
+    ``travel_time_seconds`` is intentionally excluded from the hash because
+    time-based graphs are ephemeral and including travel time would make the
+    hash nave-dependent.
     """
     sorted_nodes = sorted(
         [{"location_id": n.location_id, "label": n.label} for n in nodes],
