@@ -134,3 +134,37 @@ class TestCreateApp:
 
         assert resp.status_code == 200
         assert resp.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+    def test_cors_configured_via_env_var(self) -> None:
+        mock_client = _make_mock_mongo()
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "HEXADIAN_AUTH_JWT_SECRET": SECRET,
+                    "HHH_GRAPHS_CORS_ALLOW_ORIGINS": '["http://custom-frontend:4000"]',
+                },
+            ),
+            patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_client),
+        ):
+            from src.main import create_app
+
+            app = create_app()
+            client = TestClient(app, raise_server_exceptions=False)
+            allowed_resp = client.options(
+                "/health",
+                headers={
+                    "Origin": "http://custom-frontend:4000",
+                    "Access-Control-Request-Method": "GET",
+                },
+            )
+            rejected_resp = client.options(
+                "/health",
+                headers={
+                    "Origin": "http://localhost:3000",
+                    "Access-Control-Request-Method": "GET",
+                },
+            )
+
+        assert allowed_resp.headers.get("access-control-allow-origin") == "http://custom-frontend:4000"
+        assert "access-control-allow-origin" not in rejected_resp.headers

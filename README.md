@@ -64,7 +64,10 @@ uv run hhh up
 |---|---|---|
 | `HHH_GRAPHS_MONGO_URI` | `mongodb://localhost:27017` | MongoDB connection string |
 | `HHH_GRAPHS_MONGO_DB` | `hhh_graphs` | Database name |
+| `HHH_GRAPHS_HOST` | `0.0.0.0` | Host address the service binds to |
 | `HHH_GRAPHS_PORT` | `8004` | Service port |
+| `HHH_GRAPHS_MAPS_SERVICE_URL` | `http://localhost:8003` | Base URL of the maps-service |
+| `HHH_GRAPHS_CORS_ALLOW_ORIGINS` | `["http://localhost:3000","http://localhost:3001"]` | JSON array of allowed CORS origins |
 | `HEXADIAN_AUTH_JWT_SECRET` | `change-me-in-production` | Shared secret for JWT signature verification |
 | `HHH_GRAPHS_JWT_ALGORITHM` | `HS256` | JWT signing algorithm |
 
