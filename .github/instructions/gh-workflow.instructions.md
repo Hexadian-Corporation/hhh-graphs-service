@@ -16,6 +16,7 @@ applyTo: Anytime you interact with GitHub.
 | Project (org-level, #1) | `PVT_kwDOD_yaZ84BRv-S` |
 | Status field | `PVTSSF_lADOD_yaZ84BRv-Szg_fF9E` |
 | Priority field | `PVTSSF_lADOD_yaZ84BRv-Szg_f9RA` |
+| Complexity field | `PVTSSF_lADOD_yaZ84BRv-Szg_45es` |
 
 ### Status Options
 
@@ -35,6 +36,17 @@ applyTo: Anytime you interact with GitHub.
 | High | `ddb9c762` |
 | Medium | `3a0d1cdb` |
 | Low | `a5ab890a` |
+
+### Complexity Options
+
+Complexity indicates the intrinsic implementation difficulty of a task. It is used to select the appropriate LLM for implementation (e.g., Trivial/Low → lighter models, Medium/High → stronger models). **Any LLM refining or creating tasks MUST calculate and set this field**, just like Status and Priority.
+
+| Complexity | Option ID | Description |
+|------------|-----------|-------------|
+| Trivial | `da06bf4b` | Config changes, typos, one-liners, boilerplate-only tasks |
+| Low | `a2f911d6` | Single-file or single-module changes, straightforward implementations |
+| Medium | `2554780f` | Multi-file changes, cross-layer work, moderate domain understanding needed |
+| High | `1e0692fb` | Cross-service/repo changes, architectural decisions, complex algorithms |
 
 ## Creating an Issue
 
@@ -83,6 +95,16 @@ gh api graphql -f query='mutation {
     value: { singleSelectOptionId: "<PRIORITY_OPTION_ID>" }
   }) { projectV2Item { id } }
 }'
+
+# Set Complexity (e.g., Medium)
+gh api graphql -f query='mutation {
+  updateProjectV2ItemFieldValue(input: {
+    projectId: "PVT_kwDOD_yaZ84BRv-S",
+    itemId: "<ITEM_ID>",
+    fieldId: "PVTSSF_lADOD_yaZ84BRv-Szg_45es",
+    value: { singleSelectOptionId: "<COMPLEXITY_OPTION_ID>" }
+  }) { projectV2Item { id } }
+}'
 ```
 
 4. **Set blocking relationships** if the issue depends on other issues (see [Issue Relationships](#issue-relationships-blocking--blocked-by) below).
@@ -94,7 +116,8 @@ gh api graphql -f query='mutation {
 2. ✅ **Added to org project board #1** (`gh project item-add 1 --owner Hexadian-Corporation --url <url>`)
 3. ✅ **Status set on the board** — `Ready` if no dependencies, `Blocked` if it depends on other issues
 4. ✅ **Priority set on the board** — `High`, `Medium`, or `Low`
-5. ✅ **Blocking relationships set** via GraphQL `addBlockedBy` mutation (if applicable)
+5. ✅ **Complexity set on the board** — `Trivial`, `Low`, `Medium`, or `High` (calculated by analyzing the task's scope, number of files/services affected, and domain knowledge required)
+6. ✅ **Blocking relationships set** via GraphQL `addBlockedBy` mutation (if applicable)
 
 Skipping any of these steps results in orphaned issues that don't appear on the board, have no priority, or silently ignore dependencies. The auto-unblock workflow relies on native blocking relationships — body text like "Depends on #X" is **ignored**.
 </critical>
@@ -130,6 +153,7 @@ This format is intentionally identical for both issue titles and PR titles. When
 | hexadian-auth-service | `auth` | `feat(auth): RSI verification` |
 | hexadian-auth-common | `auth-common` | `feat(auth-common): scaffold package` |
 | hhh-commodities-service | `commodities` | `feat(commodities): add commodity CRUD` |
+| hhh-dataminer | `dataminer` | `feat(dataminer): add data source adapter` |
 | hhh-frontend | `frontend` | `feat(frontend): landing page` |
 | hhh-backoffice-frontend | `backoffice` | `feat(backoffice): contract list page` |
 | hexadian-hauling-helper | `main` | `ci(main): add auto-unblock workflow` |
@@ -152,7 +176,7 @@ Apply labels from the synced set: `domain`, `api`, `persistence`, `backend`, `fr
 
 Every repo has a `.github/workflows/ci.yml` that runs on PRs to `main`.
 
-### Python services (contracts, ships, maps, graphs, routes, auth, commodities)
+### Python services (contracts, ships, maps, graphs, routes, auth, commodities, dataminer)
 
 | Job | Name | What it does |
 |-----|------|-------------|
@@ -197,6 +221,7 @@ The `Hexadian-Corporation/.github` repo hosts **reusable workflows** that all re
 | `auto-status-reusable.yml` | Updates project board status based on PR lifecycle events | `pull_request` |
 | `secret-scan-reusable.yml` | Runs gitleaks secret detection | `pull_request` |
 | `pr-title-reusable.yml` | Validates PR title format (accepts `example` and `scopes` inputs) | `pull_request` |
+| `copilot-fix-reusable.yml` | Posts CI failure report on PR with `@copilot` fix prompt (accepts `stack` input: `python`/`node`/`mixed`) | `workflow_call` from ci.yml `copilot-fix` job |
 | `notify-main-reusable.yml` | Dispatches `submodule-updated` to hexadian-hauling-helper | `push` to `main` |
 | `auto-unblock.yml` | Two-phase blocked/unblocked task management (not reusable — runs on schedule + dispatch) | `schedule`, `repository_dispatch`, `workflow_dispatch` |
 
@@ -219,6 +244,7 @@ jobs:
 **Check name format** — With reusable workflows, status check names follow the pattern `<caller_job> / <called_job>`. Required checks use this format:
 - `pr-title / Validate PR Title` (was `Validate PR Title`)
 - `secret-scan / Secret Scan` (was `Secret Scan`)
+- `Request Copilot Fix / CI Failure Report` (copilot-fix reusable workflow, only runs on CI failure)
 - CI checks remain unchanged (ci.yml is per-repo, not reusable)
 
 ### Secret Scan
@@ -236,6 +262,26 @@ Accepts two optional inputs:
 - `scopes` — Comma-separated scope list shown in error message (default: all HHH scopes)
 
 hexadian-auth-client overrides with `scopes: "auth-core, auth-react, auth-client"`.
+
+### Copilot Fix (reusable)
+
+**`copilot-fix-reusable.yml`** (in `.github` repo, called by all 11 repos with ci.yml) — When lint/test jobs fail, posts a structured CI failure report as a PR comment with log excerpts and a `@copilot` prompt.
+
+Accepts one input:
+- `stack` — `python` (default), `node`, or `mixed` (for repos with both Python and Node.js stacks)
+
+Caller job pattern:
+```yaml
+copilot-fix:
+  name: Request Copilot Fix
+  needs: [lint, test]
+  if: failure()
+  uses: Hexadian-Corporation/.github/.github/workflows/copilot-fix-reusable.yml@main
+  with:
+    stack: python  # or node, or mixed
+```
+
+Stack assignments: `python` for all Python backend services + auth-common, `node` for frontend + backoffice-frontend + auth-client, `mixed` for auth-service (multiple sub-projects).
 
 ### Auto-status & Unblock
 
