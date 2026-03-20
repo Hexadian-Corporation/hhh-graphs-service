@@ -62,7 +62,12 @@ src/
 |---|---|---|
 | `HHH_GRAPHS_MONGO_URI` | `mongodb://localhost:27017` | MongoDB connection string |
 | `HHH_GRAPHS_MONGO_DB` | `hhh_graphs` | Database name |
+| `HHH_GRAPHS_HOST` | `0.0.0.0` | Host address the service binds to |
 | `HHH_GRAPHS_PORT` | `8004` | Service port |
+| `HHH_GRAPHS_MAPS_SERVICE_URL` | `http://localhost:8003` | Base URL of the maps-service |
+| `HHH_GRAPHS_CORS_ALLOW_ORIGINS` | `["http://localhost:3000","http://localhost:3001"]` | JSON array of allowed CORS origins |
+| `HEXADIAN_AUTH_JWT_SECRET` | `change-me-in-production` | Shared secret for JWT signature verification |
+| `HHH_GRAPHS_JWT_ALGORITHM` | `HS256` | JWT signing algorithm |
 
 ## API
 
@@ -117,6 +122,8 @@ The issue title and PR title must be **identical**. PR body must include `Fixes 
 
 - **Keep the README up to date.** When you add, remove, or change commands, environment variables, API endpoints, domain models, or architecture — update `README.md`. The README is the source of truth for developers.
 - **Keep the monorepo CLI service registry up to date.** When adding or removing a service, update `SERVICES`, `FRONTENDS`, `COMPOSE_SERVICE_MAP`, and `SERVICE_ALIASES` in `hexadian-hauling-helper/hhh_cli/__init__.py`, plus the `docker-compose.yml` entry.
+
+<critical>**Configuration externalization:** Any new configuration value that could vary between environments (URLs, secrets, ports, feature flags, timeouts, etc.) MUST be externalized as a Docker environment variable with a sensible default for local development. Add the field to `Settings` in `src/infrastructure/config/settings.py`, document it in `README.md` and in `.github/instructions/copilot.instructions.md`, and create a task in `hexadian-hauling-helper` to wire it in `docker-compose.yml`.</critical>
 
 ## Organization Profile Maintenance
 

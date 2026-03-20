@@ -11,5 +11,6 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(default="change-me-in-production", validation_alias="HEXADIAN_AUTH_JWT_SECRET")
     jwt_algorithm: str = "HS256"
     maps_service_url: str = "http://localhost:8003"
+    cors_allow_origins: list[str] = Field(default=["http://localhost:3000", "http://localhost:3001"])
 
     model_config = {"env_prefix": "HHH_GRAPHS_", "populate_by_name": True}
