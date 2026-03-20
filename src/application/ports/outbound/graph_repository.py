@@ -15,3 +15,6 @@ class GraphRepository(ABC):
 
     @abstractmethod
     def delete(self, graph_id: str) -> bool: ...
+
+    @abstractmethod
+    def find_by_hash(self, hash_value: str) -> Graph | None: ...

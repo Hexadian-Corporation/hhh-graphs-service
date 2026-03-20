@@ -8,6 +8,7 @@ class GraphApiMapper:
         return Graph(
             id=dto.id,
             name=dto.name,
+            hash=dto.hash,
             nodes=[Node(location_id=n.location_id, label=n.label) for n in dto.nodes],
             edges=[
                 Edge(
@@ -26,6 +27,7 @@ class GraphApiMapper:
         return GraphDTO(
             _id=graph.id,
             name=graph.name,
+            hash=graph.hash,
             nodes=[NodeDTO(location_id=n.location_id, label=n.label) for n in graph.nodes],
             edges=[
                 EdgeDTO(
