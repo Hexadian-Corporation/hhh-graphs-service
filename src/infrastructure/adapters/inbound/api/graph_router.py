@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from hexadian_auth_common.fastapi import require_permission
 
 from src.application.ports.inbound.graph_service import GraphService
 from src.domain.exceptions.graph_exceptions import GraphNotFoundError
 from src.infrastructure.adapters.inbound.api.graph_api_mapper import GraphApiMapper
-from src.infrastructure.adapters.inbound.api.graph_dto import GraphDTO
+from src.infrastructure.adapters.inbound.api.graph_dto import GraphDTO, GraphGenerateDTO
 
 router = APIRouter(prefix="/graphs", tags=["graphs"])
 
@@ -27,8 +27,19 @@ def create_graph(dto: GraphDTO) -> GraphDTO:
     return GraphApiMapper.to_dto(created)
 
 
+@router.post("/generate", response_model=GraphDTO, status_code=201, dependencies=_write)
+def generate_graph(dto: GraphGenerateDTO) -> GraphDTO:
+    """Generate a distance graph from Maps data, deduplicating by hash."""
+    try:
+        graph = _graph_service.generate(dto.location_ids)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return GraphApiMapper.to_dto(graph)
+
+
 @router.get("/{graph_id}", response_model=GraphDTO, dependencies=_read)
-def get_graph(graph_id: str) -> GraphDTO:
+def get_graph(graph_id: str, response: Response) -> GraphDTO:
+    response.headers["Cache-Control"] = "max-age=3600"
     try:
         graph = _graph_service.get(graph_id)
     except GraphNotFoundError as exc:
@@ -37,7 +48,8 @@ def get_graph(graph_id: str) -> GraphDTO:
 
 
 @router.get("/", response_model=list[GraphDTO], dependencies=_read)
-def list_graphs() -> list[GraphDTO]:
+def list_graphs(response: Response) -> list[GraphDTO]:
+    response.headers["Cache-Control"] = "max-age=3600"
     return [GraphApiMapper.to_dto(g) for g in _graph_service.list_all()]
 
 

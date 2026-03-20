@@ -284,6 +284,7 @@ dependencies = [
     { name = "cachetools" },
     { name = "fastapi" },
     { name = "hexadian-auth-common", extra = ["fastapi"] },
+    { name = "httpx" },
     { name = "opyoid" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -294,7 +295,6 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "diff-cover" },
-    { name = "httpx" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
@@ -306,7 +306,7 @@ requires-dist = [
     { name = "diff-cover", marker = "extra == 'dev'", specifier = ">=9.0" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "hexadian-auth-common", extras = ["fastapi"], git = "https://github.com/Hexadian-Corporation/hexadian-auth-common.git" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28" },
+    { name = "httpx", specifier = ">=0.28" },
     { name = "opyoid", specifier = ">=0.6,<3.0" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "pydantic-settings", specifier = ">=2.7" },

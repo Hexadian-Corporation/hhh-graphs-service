@@ -107,6 +107,10 @@ class TestAuthenticationRequired:
         resp = client.post("/graphs/", json=_graph_payload())
         assert resp.status_code == 401
 
+    def test_generate_graph_requires_auth(self, client: TestClient) -> None:
+        resp = client.post("/graphs/generate", json={"location_ids": ["loc1"]})
+        assert resp.status_code == 401
+
     def test_get_graph_requires_auth(self, client: TestClient) -> None:
         resp = client.get("/graphs/abc123")
         assert resp.status_code == 401
@@ -140,6 +144,11 @@ class TestInsufficientPermissions:
     def test_create_graph_requires_write_permission(self, client: TestClient) -> None:
         token = _make_token(permissions=["hhh:graphs:read"])
         resp = client.post("/graphs/", json=_graph_payload(), headers=_auth_header(token))
+        assert resp.status_code == 403
+
+    def test_generate_graph_requires_write_permission(self, client: TestClient) -> None:
+        token = _make_token(permissions=["hhh:graphs:read"])
+        resp = client.post("/graphs/generate", json={"location_ids": ["loc1"]}, headers=_auth_header(token))
         assert resp.status_code == 403
 
     def test_get_graph_requires_read_permission(self, client: TestClient) -> None:
@@ -187,3 +196,35 @@ class TestAuthorizedAccess:
         token = _make_token(permissions=["hhh:graphs:delete"])
         resp = client.delete("/graphs/abc123", headers=_auth_header(token))
         assert resp.status_code == 204
+
+    def test_generate_graph_with_write_permission(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+        mock_graph_service.generate.return_value = _sample_graph()
+        token = _make_token(permissions=["hhh:graphs:write"])
+        resp = client.post("/graphs/generate", json={"location_ids": ["loc1", "loc2"]}, headers=_auth_header(token))
+        assert resp.status_code == 201
+        assert resp.json()["name"] == "TestGraph"
+
+    def test_generate_graph_value_error_returns_400(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+        mock_graph_service.generate.side_effect = ValueError("No locations found for the given IDs")
+        token = _make_token(permissions=["hhh:graphs:write"])
+        resp = client.post("/graphs/generate", json={"location_ids": ["loc1"]}, headers=_auth_header(token))
+        assert resp.status_code == 400
+        assert "No locations found" in resp.json()["detail"]
+
+
+class TestCacheControlHeaders:
+    """GET endpoints include Cache-Control header."""
+
+    def test_get_graph_has_cache_control(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+        mock_graph_service.get.return_value = _sample_graph()
+        token = _make_token(permissions=["hhh:graphs:read"])
+        resp = client.get("/graphs/abc123", headers=_auth_header(token))
+        assert resp.status_code == 200
+        assert resp.headers["Cache-Control"] == "max-age=3600"
+
+    def test_list_graphs_has_cache_control(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+        mock_graph_service.list_all.return_value = [_sample_graph()]
+        token = _make_token(permissions=["hhh:graphs:read"])
+        resp = client.get("/graphs/", headers=_auth_header(token))
+        assert resp.status_code == 200
+        assert resp.headers["Cache-Control"] == "max-age=3600"

@@ -14,6 +14,12 @@ class EdgeDTO(BaseModel):
     travel_time_seconds: float = 0.0
 
 
+class GraphGenerateDTO(BaseModel):
+    """Request body for graph generation."""
+
+    location_ids: list[str]
+
+
 class GraphDTO(BaseModel):
     id: str | None = Field(default=None, alias="_id")
     name: str
