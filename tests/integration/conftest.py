@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -16,6 +17,7 @@ from pymongo import MongoClient
 from pymongo.collection import Collection
 from testcontainers.mongodb import MongoDbContainer
 
+from src.application.ports.outbound.maps_client import MapsClient
 from src.application.services.graph_service_impl import GraphServiceImpl
 from src.infrastructure.adapters.inbound.api.graph_router import init_router, router
 from src.infrastructure.adapters.outbound.persistence.mongo_graph_repository import (
@@ -45,29 +47,38 @@ def collection(mongo_client: MongoClient) -> Collection:
     return mongo_client["hhh_graphs_test"]["graphs"]
 
 
+@pytest.fixture(scope="session")
+def maps_mock() -> MagicMock:
+    """Session-scoped MapsClient mock. Configured per-test in generation tests."""
+    return MagicMock(spec=MapsClient)
+
+
+@pytest.fixture(scope="session")
+def graph_service(collection: Collection, maps_mock: MagicMock) -> GraphServiceImpl:
+    """Session-scoped graph service wired to real repo + mock maps client."""
+    repo = MongoGraphRepository(collection)
+    return GraphServiceImpl(repository=repo, maps_client=maps_mock)
+
+
 @pytest.fixture(autouse=True)
-def clean_db(collection: Collection) -> Generator[None, None, None]:
-    """Wipe the graphs collection before each test for isolation."""
+def clean_db(
+    collection: Collection,
+    graph_service: GraphServiceImpl,
+    maps_mock: MagicMock,
+) -> Generator[None, None, None]:
+    """Wipe the graphs collection, reset mock, and clear caches before each test."""
     collection.delete_many({})
+    maps_mock.reset_mock()
+    graph_service._invalidate_cache()
     yield
 
 
 @pytest.fixture(scope="session")
-def client(collection: Collection) -> Generator[TestClient, None, None]:
+def client(graph_service: GraphServiceImpl) -> Generator[TestClient, None, None]:
     """Session-scoped TestClient wired to real repository + service."""
-    # --- Stub MapsClient (not needed for CRUD integration tests) ---
-    from unittest.mock import MagicMock
-
-    from src.application.ports.outbound.maps_client import MapsClient
-
-    maps_stub = MagicMock(spec=MapsClient)
-
-    repo = MongoGraphRepository(collection)
-    service = GraphServiceImpl(repository=repo, maps_client=maps_stub)
-
     jwt_auth = JWTAuthDependency(secret=TEST_JWT_SECRET, algorithm=TEST_JWT_ALGORITHM)
 
-    init_router(service)
+    init_router(graph_service)
 
     app = FastAPI()
     app.dependency_overrides[_stub_jwt_auth] = jwt_auth
