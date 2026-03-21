@@ -1,6 +1,7 @@
 import httpx
 
 from src.application.ports.outbound.maps_client import DistanceData, LocationData, MapsClient
+from src.domain.exceptions.graph_exceptions import LocationNotFoundError, ServiceUnavailableError
 
 
 class HttpMapsClient(MapsClient):
@@ -59,3 +60,40 @@ class HttpMapsClient(MapsClient):
                         )
                     )
         return distances
+
+    def get_location_ancestors(self, location_id: str) -> list[LocationData]:
+        resp = httpx.get(
+            f"{self._base_url}/locations/{location_id}/ancestors",
+            timeout=self._timeout,
+        )
+        if resp.status_code == 404:
+            raise LocationNotFoundError(location_id)
+        if resp.status_code >= 500:
+            raise ServiceUnavailableError("maps-service", resp.status_code)
+        return [
+            LocationData(
+                id=loc["_id"],
+                name=loc["name"],
+                location_type=loc.get("location_type", ""),
+                parent_id=loc.get("parent_id"),
+            )
+            for loc in resp.json()
+        ]
+
+    def get_wormhole_distances(self) -> list[DistanceData]:
+        resp = httpx.get(
+            f"{self._base_url}/distances",
+            params={"travel_type": "wormhole"},
+            timeout=self._timeout,
+        )
+        if resp.status_code >= 500:
+            raise ServiceUnavailableError("maps-service", resp.status_code)
+        return [
+            DistanceData(
+                from_location_id=d["from_location_id"],
+                to_location_id=d["to_location_id"],
+                distance=d["distance"],
+                travel_type=d.get("travel_type", ""),
+            )
+            for d in resp.json()
+        ]
