@@ -268,12 +268,16 @@ class TestGenerate:
     def test_level2_hit_reuses_cached_pair(
         self, service: GraphServiceImpl, mock_repo: MagicMock, mock_maps_client: MagicMock
     ) -> None:
+        from src.domain.services.graph_hasher import compute_hash
+
         cached_pair = Graph(
             id="pair_cached",
             nodes=[Node(location_id="loc1", label="A"), Node(location_id="loc2", label="B")],
             edges=[Edge(source_id="loc1", target_id="loc2", distance=100.0, travel_type="quantum")],
         )
-        mock_repo.find_by_hash.side_effect = [None, cached_pair]  # full miss, pair hit
+        # Pre-populate the in-memory L2 cache
+        service._pairwise_cache[compute_hash(["loc1", "loc2"])] = cached_pair
+        mock_repo.find_by_hash.return_value = None  # L1 miss
         mock_repo.save.side_effect = lambda g: g
 
         service.generate(["loc1", "loc2"])
@@ -284,13 +288,16 @@ class TestGenerate:
     def test_level2_partial_hit_only_generates_missing_pairs(
         self, service: GraphServiceImpl, mock_repo: MagicMock, mock_maps_client: MagicMock
     ) -> None:
+        from src.domain.services.graph_hasher import compute_hash
+
         cached_pair_ab = Graph(
             id="pair_ab",
             nodes=[Node(location_id="loc1", label="A"), Node(location_id="loc2", label="B")],
             edges=[Edge(source_id="loc1", target_id="loc2", distance=100.0)],
         )
-        # full miss, pair(loc1,loc2) hit, pair(loc1,loc3) miss, pair(loc2,loc3) miss
-        mock_repo.find_by_hash.side_effect = [None, cached_pair_ab, None, None]
+        # Pre-populate the in-memory L2 cache for the (loc1, loc2) pair
+        service._pairwise_cache[compute_hash(["loc1", "loc2"])] = cached_pair_ab
+        mock_repo.find_by_hash.return_value = None  # L1 miss only
         mock_maps_client.get_location_ancestors.side_effect = [
             [LocationData(id="loc1", name="A", location_type="station", parent_id="stanton")],
             [LocationData(id="loc3", name="C", location_type="station", parent_id="stanton")],
@@ -307,8 +314,8 @@ class TestGenerate:
 
         # Ancestors called 4 times (2 pairs × 2 locations each, skipping cached pair)
         assert mock_maps_client.get_location_ancestors.call_count == 4
-        # save called 3 times: 2 pairwise + 1 merged
-        assert mock_repo.save.call_count == 3
+        # save called 1 time: only merged (pairwise not persisted)
+        assert mock_repo.save.call_count == 1
 
     # --- Same-system pair ---
 
@@ -319,10 +326,10 @@ class TestGenerate:
 
         service.generate(["loc1", "loc2"])
 
-        assert mock_repo.find_by_hash.call_count == 2  # full hash + pair hash
+        assert mock_repo.find_by_hash.call_count == 1  # full hash only (L2 is in-memory)
         assert mock_maps_client.get_location_ancestors.call_count == 2
         mock_maps_client.get_wormhole_distances.assert_not_called()
-        assert mock_repo.save.call_count == 2  # pair + merged
+        assert mock_repo.save.call_count == 1  # only merged (pairwise not persisted)
 
     def test_same_system_pair_correct_nodes_and_edges(
         self, service: GraphServiceImpl, mock_repo: MagicMock, mock_maps_client: MagicMock
@@ -483,7 +490,7 @@ class TestGenerate:
 
         assert result.hash == compute_hash(["loc1", "loc2"])
 
-    def test_pairwise_graph_persisted_with_pair_hash(
+    def test_merged_graph_persisted_with_full_hash(
         self, service: GraphServiceImpl, mock_repo: MagicMock, mock_maps_client: MagicMock
     ) -> None:
         self._setup_same_system_pair(mock_maps_client, mock_repo)
@@ -494,17 +501,29 @@ class TestGenerate:
 
         from src.domain.services.graph_hasher import compute_hash
 
-        pair_hash = compute_hash(["loc1", "loc2"])
-        assert saved_graphs[0].hash == pair_hash  # pairwise graph
+        full_hash = compute_hash(["loc1", "loc2"])
+        assert len(saved_graphs) == 1  # only merged graph persisted
+        assert saved_graphs[0].hash == full_hash
 
     # --- Error handling ---
 
-    def test_generate_raises_with_single_id(self, service: GraphServiceImpl) -> None:
-        with pytest.raises(ValueError, match="At least two"):
-            service.generate(["loc1"])
+    def test_generate_single_id_creates_single_node_graph(
+        self, service: GraphServiceImpl, mock_repo: MagicMock, mock_maps_client: MagicMock
+    ) -> None:
+        mock_repo.find_by_hash.return_value = None
+        mock_maps_client.get_locations.return_value = [
+            LocationData(id="loc1", name="Single", location_type="station", parent_id="stanton")
+        ]
+        mock_repo.save.side_effect = lambda g: g
+
+        result = service.generate(["loc1"])
+
+        assert len(result.nodes) == 1
+        assert result.nodes[0].location_id == "loc1"
+        assert result.edges == []
 
     def test_generate_raises_with_empty_list(self, service: GraphServiceImpl) -> None:
-        with pytest.raises(ValueError, match="At least two"):
+        with pytest.raises(ValueError):
             service.generate([])
 
     # --- Cache invalidation ---

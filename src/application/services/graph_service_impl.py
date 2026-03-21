@@ -19,10 +19,12 @@ class GraphServiceImpl(GraphService):
         self._maps_client = maps_client
         self._graph_cache: TTLCache[str, Graph] = TTLCache(maxsize=64, ttl=3600)
         self._list_cache: TTLCache[str, list[Graph]] = TTLCache(maxsize=1, ttl=3600)
+        self._pairwise_cache: TTLCache[str, Graph] = TTLCache(maxsize=256, ttl=3600)
 
     def _invalidate_cache(self) -> None:
         self._graph_cache.clear()
         self._list_cache.clear()
+        self._pairwise_cache.clear()
 
     def create(self, graph: Graph) -> Graph:
         result = self._repository.save(graph)
@@ -57,29 +59,44 @@ class GraphServiceImpl(GraphService):
     # ------------------------------------------------------------------
 
     def generate(self, location_ids: list[str]) -> Graph:
-        if len(location_ids) < 2:
-            raise ValueError("At least two location IDs are required")
+        if len(location_ids) == 0:
+            raise ValueError("At least one location ID is required")
 
         # --- Level 1: full-request hash ---
-        full_hash = compute_hash(location_ids)
+        sorted_ids = sorted(set(location_ids))
+        full_hash = compute_hash(sorted_ids)
         existing = self._repository.find_by_hash(full_hash)
         if existing is not None:
             self._graph_cache[existing.id] = existing
             return existing
 
+        # --- Special case: single location ---
+        if len(sorted_ids) == 1:
+            locations = self._maps_client.get_locations(sorted_ids)
+            label = locations[0].name if locations else sorted_ids[0]
+            graph = Graph(
+                name="distance-graph-1n-0e",
+                hash=full_hash,
+                nodes=[Node(location_id=sorted_ids[0], label=label)],
+                edges=[],
+            )
+            created = self._repository.save(graph)
+            self._invalidate_cache()
+            return created
+
         # --- Pairwise loop ---
-        sorted_ids = sorted(set(location_ids))
         pairwise_graphs: list[Graph] = []
 
         for id_a, id_b in combinations(sorted_ids, 2):
-            # Level 2: pairwise hash
+            # Level 2: pairwise hash (in-memory cache only)
             pair_hash = compute_hash([id_a, id_b])
-            cached_pair = self._repository.find_by_hash(pair_hash)
+            cached_pair = self._pairwise_cache.get(pair_hash)
             if cached_pair is not None:
                 pairwise_graphs.append(cached_pair)
                 continue
 
             pair_graph = self._build_pairwise_graph(id_a, id_b, pair_hash)
+            self._pairwise_cache[pair_hash] = pair_graph
             pairwise_graphs.append(pair_graph)
 
         # --- Merge & persist ---
@@ -111,7 +128,7 @@ class GraphServiceImpl(GraphService):
         return tree_ids, system_id
 
     def _build_pairwise_graph(self, id_a: str, id_b: str, pair_hash: str) -> Graph:
-        """Build, persist, and return a pairwise graph for two locations."""
+        """Build and return a pairwise graph for two locations (not persisted)."""
         # Ancestor chains (one API call each)
         ancestors_a = self._maps_client.get_location_ancestors(id_a)
         ancestors_b = self._maps_client.get_location_ancestors(id_b)
@@ -132,9 +149,9 @@ class GraphServiceImpl(GraphService):
                 gw_ids.add(wd.from_location_id)
                 gw_ids.add(wd.to_location_id)
 
-            gw_locations = self._maps_client.get_locations(list(gw_ids))
+            gw_locations = self._maps_client.get_locations(sorted(gw_ids))
             parent_ids = {loc.parent_id for loc in gw_locations if loc.parent_id} - gw_ids
-            parent_locations = self._maps_client.get_locations(list(parent_ids)) if parent_ids else []
+            parent_locations = self._maps_client.get_locations(sorted(parent_ids)) if parent_ids else []
 
             locations_by_id: dict[str, LocationData] = {loc.id: loc for loc in gw_locations + parent_locations}
 
@@ -143,12 +160,12 @@ class GraphServiceImpl(GraphService):
             loc_dict.update(locations_by_id)
 
         # Fetch edges for all nodes in the set
-        distances = self._maps_client.get_distances_for_locations(list(node_ids))
+        distances = self._maps_client.get_distances_for_locations(sorted(node_ids))
 
         # Fetch labels for any node IDs not yet in loc_dict
         missing_ids = node_ids - set(loc_dict)
         if missing_ids:
-            for loc in self._maps_client.get_locations(list(missing_ids)):
+            for loc in self._maps_client.get_locations(sorted(missing_ids)):
                 loc_dict[loc.id] = loc
 
         nodes = [Node(location_id=nid, label=loc_dict[nid].name if nid in loc_dict else nid) for nid in node_ids]
@@ -163,13 +180,12 @@ class GraphServiceImpl(GraphService):
             for d in distances
         ]
 
-        graph = Graph(
+        return Graph(
             name=f"distance-graph-{len(nodes)}n-{len(edges)}e",
             hash=pair_hash,
             nodes=nodes,
             edges=edges,
         )
-        return self._repository.save(graph)
 
     @staticmethod
     def _merge_graphs(graphs: list[Graph]) -> Graph:
