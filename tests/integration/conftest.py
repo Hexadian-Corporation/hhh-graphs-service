@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
@@ -13,6 +13,7 @@ from hexadian_auth_common.fastapi import (
     _stub_jwt_auth,
     register_exception_handlers,
 )
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from testcontainers.mongodb import MongoDbContainer
@@ -35,7 +36,7 @@ def mongo_container() -> Generator[MongoDbContainer, None, None]:
 
 @pytest.fixture(scope="session")
 def mongo_client(mongo_container: MongoDbContainer) -> Generator[MongoClient, None, None]:
-    """Session-scoped MongoClient connected to the test container."""
+    """Session-scoped sync MongoClient for direct DB operations (cleanup, index tests)."""
     client: MongoClient = MongoClient(mongo_container.get_connection_url())
     yield client
     client.close()
@@ -43,20 +44,28 @@ def mongo_client(mongo_container: MongoDbContainer) -> Generator[MongoClient, No
 
 @pytest.fixture(scope="session")
 def collection(mongo_client: MongoClient) -> Collection:
-    """Session-scoped MongoDB collection for graphs."""
+    """Session-scoped sync MongoDB collection for direct DB operations."""
     return mongo_client["hhh_graphs_test"]["graphs"]
 
 
 @pytest.fixture(scope="session")
-def maps_mock() -> MagicMock:
-    """Session-scoped MapsClient mock. Configured per-test in generation tests."""
-    return MagicMock(spec=MapsClient)
+def motor_collection(mongo_container: MongoDbContainer) -> Generator[AsyncIOMotorCollection, None, None]:
+    """Session-scoped async motor collection for the repository."""
+    motor_client = AsyncIOMotorClient(mongo_container.get_connection_url())
+    yield motor_client["hhh_graphs_test"]["graphs"]
+    motor_client.close()
 
 
 @pytest.fixture(scope="session")
-def graph_service(collection: Collection, maps_mock: MagicMock) -> GraphServiceImpl:
+def maps_mock() -> AsyncMock:
+    """Session-scoped MapsClient mock. Configured per-test in generation tests."""
+    return AsyncMock(spec=MapsClient)
+
+
+@pytest.fixture(scope="session")
+def graph_service(motor_collection: AsyncIOMotorCollection, maps_mock: AsyncMock) -> GraphServiceImpl:
     """Session-scoped graph service wired to real repo + mock maps client."""
-    repo = MongoGraphRepository(collection)
+    repo = MongoGraphRepository(motor_collection)
     return GraphServiceImpl(repository=repo, maps_client=maps_mock)
 
 
@@ -64,7 +73,7 @@ def graph_service(collection: Collection, maps_mock: MagicMock) -> GraphServiceI
 def clean_db(
     collection: Collection,
     graph_service: GraphServiceImpl,
-    maps_mock: MagicMock,
+    maps_mock: AsyncMock,
 ) -> Generator[None, None, None]:
     """Wipe the graphs collection, reset mock, and clear caches before each test."""
     collection.delete_many({})
@@ -85,4 +94,5 @@ def client(graph_service: GraphServiceImpl) -> Generator[TestClient, None, None]
     register_exception_handlers(app)
     app.include_router(router)
 
-    yield TestClient(app)
+    with TestClient(app) as tc:
+        yield tc

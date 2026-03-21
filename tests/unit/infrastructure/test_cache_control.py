@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import jwt as pyjwt
 import pytest
@@ -38,12 +38,12 @@ def _sample_graph() -> Graph:
 
 
 @pytest.fixture()
-def mock_graph_service() -> MagicMock:
-    return MagicMock()
+def mock_graph_service() -> AsyncMock:
+    return AsyncMock()
 
 
 @pytest.fixture()
-def client(mock_graph_service: MagicMock) -> TestClient:
+def client(mock_graph_service: AsyncMock) -> TestClient:
     with patch("src.infrastructure.config.dependencies.MongoClient"):
         from fastapi import FastAPI
         from hexadian_auth_common.fastapi import (
@@ -71,7 +71,7 @@ def client(mock_graph_service: MagicMock) -> TestClient:
 class TestNoCacheControlOnMutations:
     """POST and DELETE endpoints must NOT include a Cache-Control header."""
 
-    def test_create_graph_has_no_cache_control(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+    def test_create_graph_has_no_cache_control(self, client: TestClient, mock_graph_service: AsyncMock) -> None:
         mock_graph_service.create.return_value = _sample_graph()
         token = _make_token(permissions=["hhh:graphs:write"])
         resp = client.post(
@@ -82,7 +82,7 @@ class TestNoCacheControlOnMutations:
         assert resp.status_code == 201
         assert "Cache-Control" not in resp.headers
 
-    def test_generate_graph_has_no_cache_control(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+    def test_generate_graph_has_no_cache_control(self, client: TestClient, mock_graph_service: AsyncMock) -> None:
         mock_graph_service.generate.return_value = _sample_graph()
         token = _make_token(permissions=["hhh:graphs:write"])
         resp = client.post(
@@ -93,7 +93,7 @@ class TestNoCacheControlOnMutations:
         assert resp.status_code == 201
         assert "Cache-Control" not in resp.headers
 
-    def test_delete_graph_has_no_cache_control(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+    def test_delete_graph_has_no_cache_control(self, client: TestClient, mock_graph_service: AsyncMock) -> None:
         mock_graph_service.delete.return_value = None
         token = _make_token(permissions=["hhh:graphs:delete"])
         resp = client.delete("/graphs/abc123", headers=_auth_header(token))

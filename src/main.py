@@ -1,3 +1,6 @@
+from contextlib import asynccontextmanager
+
+import httpx
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +9,7 @@ from hexadian_auth_common.fastapi import (
     _stub_jwt_auth,
     register_exception_handlers,
 )
+from motor.motor_asyncio import AsyncIOMotorClient
 from opyoid import Injector
 
 from src.application.ports.inbound.graph_service import GraphService
@@ -20,9 +24,17 @@ def create_app() -> FastAPI:
 
     graph_service = injector.inject(GraphService)
     jwt_auth = injector.inject(JWTAuthDependency)
+    motor_client = injector.inject(AsyncIOMotorClient)
+    http_client = injector.inject(httpx.AsyncClient)
     init_router(graph_service)
 
-    app = FastAPI(title=settings.app_name)
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):  # noqa: ARG001
+        yield
+        await http_client.aclose()
+        motor_client.close()
+
+    app = FastAPI(title=settings.app_name, lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allow_origins,

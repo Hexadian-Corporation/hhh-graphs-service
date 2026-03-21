@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import jwt as pyjwt
 import pytest
@@ -57,12 +57,12 @@ def _graph_payload() -> dict:
 
 
 @pytest.fixture()
-def mock_graph_service() -> MagicMock:
-    return MagicMock()
+def mock_graph_service() -> AsyncMock:
+    return AsyncMock()
 
 
 @pytest.fixture()
-def client(mock_graph_service: MagicMock) -> TestClient:
+def client(mock_graph_service: AsyncMock) -> TestClient:
     with patch("src.infrastructure.config.dependencies.MongoClient"):
         from src.infrastructure.adapters.inbound.api.graph_router import init_router
         from src.infrastructure.config.settings import Settings
@@ -170,41 +170,41 @@ class TestInsufficientPermissions:
 class TestAuthorizedAccess:
     """Endpoints succeed with valid token and correct permissions."""
 
-    def test_create_graph_with_write_permission(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+    def test_create_graph_with_write_permission(self, client: TestClient, mock_graph_service: AsyncMock) -> None:
         mock_graph_service.create.return_value = _sample_graph()
         token = _make_token(permissions=["hhh:graphs:write"])
         resp = client.post("/graphs/", json=_graph_payload(), headers=_auth_header(token))
         assert resp.status_code == 201
         assert resp.json()["name"] == "TestGraph"
 
-    def test_get_graph_with_read_permission(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+    def test_get_graph_with_read_permission(self, client: TestClient, mock_graph_service: AsyncMock) -> None:
         mock_graph_service.get.return_value = _sample_graph()
         token = _make_token(permissions=["hhh:graphs:read"])
         resp = client.get("/graphs/abc123", headers=_auth_header(token))
         assert resp.status_code == 200
         assert resp.json()["name"] == "TestGraph"
 
-    def test_list_graphs_with_read_permission(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+    def test_list_graphs_with_read_permission(self, client: TestClient, mock_graph_service: AsyncMock) -> None:
         mock_graph_service.list_all.return_value = [_sample_graph()]
         token = _make_token(permissions=["hhh:graphs:read"])
         resp = client.get("/graphs/", headers=_auth_header(token))
         assert resp.status_code == 200
         assert len(resp.json()) == 1
 
-    def test_delete_graph_with_delete_permission(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+    def test_delete_graph_with_delete_permission(self, client: TestClient, mock_graph_service: AsyncMock) -> None:
         mock_graph_service.delete.return_value = None
         token = _make_token(permissions=["hhh:graphs:delete"])
         resp = client.delete("/graphs/abc123", headers=_auth_header(token))
         assert resp.status_code == 204
 
-    def test_generate_graph_with_write_permission(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+    def test_generate_graph_with_write_permission(self, client: TestClient, mock_graph_service: AsyncMock) -> None:
         mock_graph_service.generate.return_value = _sample_graph()
         token = _make_token(permissions=["hhh:graphs:write"])
         resp = client.post("/graphs/generate", json={"location_ids": ["loc1", "loc2"]}, headers=_auth_header(token))
         assert resp.status_code == 201
         assert resp.json()["name"] == "TestGraph"
 
-    def test_generate_graph_value_error_returns_400(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+    def test_generate_graph_value_error_returns_400(self, client: TestClient, mock_graph_service: AsyncMock) -> None:
         mock_graph_service.generate.side_effect = ValueError("No locations found for the given IDs")
         token = _make_token(permissions=["hhh:graphs:write"])
         resp = client.post("/graphs/generate", json={"location_ids": ["loc1"]}, headers=_auth_header(token))
@@ -215,14 +215,14 @@ class TestAuthorizedAccess:
 class TestCacheControlHeaders:
     """GET endpoints include Cache-Control header."""
 
-    def test_get_graph_has_cache_control(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+    def test_get_graph_has_cache_control(self, client: TestClient, mock_graph_service: AsyncMock) -> None:
         mock_graph_service.get.return_value = _sample_graph()
         token = _make_token(permissions=["hhh:graphs:read"])
         resp = client.get("/graphs/abc123", headers=_auth_header(token))
         assert resp.status_code == 200
         assert resp.headers["Cache-Control"] == "max-age=3600"
 
-    def test_list_graphs_has_cache_control(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+    def test_list_graphs_has_cache_control(self, client: TestClient, mock_graph_service: AsyncMock) -> None:
         mock_graph_service.list_all.return_value = [_sample_graph()]
         token = _make_token(permissions=["hhh:graphs:read"])
         resp = client.get("/graphs/", headers=_auth_header(token))

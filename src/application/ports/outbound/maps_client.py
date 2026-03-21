@@ -24,21 +24,21 @@ class DistanceData:
 
 class MapsClient(ABC):
     @abstractmethod
-    def get_locations(self, location_ids: list[str]) -> list[LocationData]:
+    async def get_locations(self, location_ids: list[str]) -> list[LocationData]:
         """Fetch multiple locations by ID from Maps service."""
         ...
 
     @abstractmethod
-    def get_distances_for_locations(self, location_ids: list[str]) -> list[DistanceData]:
+    async def get_distances_for_locations(self, location_ids: list[str]) -> list[DistanceData]:
         """Fetch all distances between the given location IDs from Maps service."""
         ...
 
     @abstractmethod
-    def get_location_ancestors(self, location_id: str) -> list[LocationData]:
+    async def get_location_ancestors(self, location_id: str) -> list[LocationData]:
         """Return ancestor chain: [location, parent, grandparent, ...] excluding star/system root."""
         ...
 
     @abstractmethod
-    def get_wormhole_distances(self) -> list[DistanceData]:
+    async def get_wormhole_distances(self) -> list[DistanceData]:
         """Return all LocationDistance records with travel_type='wormhole'."""
         ...
