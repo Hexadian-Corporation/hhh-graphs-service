@@ -16,9 +16,9 @@ _READ = make_auth_header("hhh:graphs:read")
 # ---------------------------------------------------------------------------
 # Fake location / distance data returned by the mocked Maps client
 # ---------------------------------------------------------------------------
-_LOC_A = LocationData(id="loc-a", name="Lorville", location_type="city", parent_id=None)
-_LOC_B = LocationData(id="loc-b", name="Area18", location_type="city", parent_id=None)
-_LOC_C = LocationData(id="loc-c", name="New Babbage", location_type="city", parent_id=None)
+_LOC_A = LocationData(id="loc-a", name="Lorville", location_type="city", parent_id="stanton")
+_LOC_B = LocationData(id="loc-b", name="Area18", location_type="city", parent_id="stanton")
+_LOC_C = LocationData(id="loc-c", name="New Babbage", location_type="city", parent_id="stanton")
 
 _DIST_AB = DistanceData(from_location_id="loc-a", to_location_id="loc-b", distance=42.5, travel_type="quantum")
 _DIST_BA = DistanceData(from_location_id="loc-b", to_location_id="loc-a", distance=42.5, travel_type="quantum")
@@ -32,8 +32,10 @@ def _configure_mock(
     distances: list[DistanceData],
 ) -> None:
     """Set up the MapsClient mock to return the given locations and distances."""
-    mock.get_locations.return_value = locations
+    loc_dict = {loc.id: loc for loc in locations}
+    mock.get_location_ancestors.side_effect = lambda loc_id: [loc_dict[loc_id]] if loc_id in loc_dict else []
     mock.get_distances_for_locations.return_value = distances
+    mock.get_locations.return_value = locations
 
 
 # ---------------------------------------------------------------------------
@@ -66,7 +68,7 @@ class TestGraphGenerate:
             headers=_WRITE,
         )
 
-        maps_mock.get_locations.assert_called_once_with(["loc-a", "loc-b"])
+        assert maps_mock.get_location_ancestors.call_count == 2
         maps_mock.get_distances_for_locations.assert_called_once_with(["loc-a", "loc-b"])
 
     def test_edges_have_source_target_and_distance(self, client: TestClient, maps_mock: MagicMock) -> None:
@@ -119,8 +121,8 @@ class TestGraphGenerate:
         )
 
         assert resp.status_code == 201
-        # Only get_locations and get_distances_for_locations should be called
-        assert maps_mock.get_locations.call_count == 1
+        # get_location_ancestors called twice (once per location), get_distances_for_locations once
+        assert maps_mock.get_location_ancestors.call_count == 2
         assert maps_mock.get_distances_for_locations.call_count == 1
 
 
