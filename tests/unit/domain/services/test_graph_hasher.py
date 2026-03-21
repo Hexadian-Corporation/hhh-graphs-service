@@ -1,5 +1,5 @@
 from src.domain.models.graph import Edge, Node
-from src.domain.services.graph_hasher import compute_graph_hash
+from src.domain.services.graph_hasher import compute_graph_hash, compute_hash
 
 
 def _make_nodes() -> list[Node]:
@@ -96,3 +96,55 @@ class TestTravelTimeExclusion:
             Edge(source_id="loc1", target_id="loc2", distance=100.0, travel_type="quantum", travel_time_seconds=999.0)
         ]
         assert compute_graph_hash(nodes, edges_a) == compute_graph_hash(nodes, edges_b)
+
+
+class TestComputeHash:
+    def test_order_independent_pair(self) -> None:
+        assert compute_hash(["A", "B"]) == compute_hash(["B", "A"])
+
+    def test_order_independent_triple(self) -> None:
+        assert compute_hash(["A", "B", "C"]) == compute_hash(["C", "A", "B"])
+
+    def test_deterministic(self) -> None:
+        result_1 = compute_hash(["loc1", "loc2", "loc3"])
+        result_2 = compute_hash(["loc1", "loc2", "loc3"])
+        assert result_1 == result_2
+
+    def test_single_id(self) -> None:
+        result = compute_hash(["A"])
+        assert len(result) == 64
+        assert all(c in "0123456789abcdef" for c in result)
+
+    def test_two_ids(self) -> None:
+        result = compute_hash(["A", "B"])
+        assert len(result) == 64
+        assert all(c in "0123456789abcdef" for c in result)
+
+    def test_n_ids(self) -> None:
+        ids = [f"loc{i}" for i in range(10)]
+        result = compute_hash(ids)
+        assert len(result) == 64
+        assert all(c in "0123456789abcdef" for c in result)
+
+    def test_empty_list(self) -> None:
+        result = compute_hash([])
+        assert len(result) == 64
+        assert all(c in "0123456789abcdef" for c in result)
+
+    def test_duplicates_preserved(self) -> None:
+        # ["A", "A"] sorted → "A|A" — distinct from "A"
+        assert compute_hash(["A", "A"]) != compute_hash(["A"])
+
+    def test_different_ids_produce_different_hashes(self) -> None:
+        assert compute_hash(["A", "B"]) != compute_hash(["A", "C"])
+
+    def test_hash_format_is_64_char_hex(self) -> None:
+        result = compute_hash(["loc1", "loc2"])
+        assert len(result) == 64
+        assert all(c in "0123456789abcdef" for c in result)
+
+    def test_stability_known_input(self) -> None:
+        """Regression: fixed input must always produce the same hash."""
+        expected = compute_hash(["loc1", "loc2"])
+        assert compute_hash(["loc2", "loc1"]) == expected
+        assert compute_hash(["loc1", "loc2"]) == expected

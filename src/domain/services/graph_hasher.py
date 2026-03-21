@@ -38,3 +38,17 @@ def compute_graph_hash(nodes: list[Node], edges: list[Edge]) -> str:
     )
 
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def compute_hash(location_ids: list[str]) -> str:
+    """Compute a deterministic, order-independent hash from a list of location IDs.
+
+    Used for two-level caching:
+    - Level 1 (full-request): compute_hash(["A", "B", "C"]) → merged graph lookup
+    - Level 2 (pairwise):     compute_hash(["A", "B"])       → pair graph lookup
+
+    IDs are sorted alphabetically and joined with ``|`` before hashing, so the
+    result is identical regardless of the order in which the caller supplies them.
+    """
+    canonical = "|".join(sorted(location_ids))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
