@@ -21,41 +21,41 @@ def init_router(graph_service: GraphService) -> None:
 
 
 @router.post("/", response_model=GraphDTO, status_code=201, dependencies=_write)
-def create_graph(dto: GraphDTO) -> GraphDTO:
+async def create_graph(dto: GraphDTO) -> GraphDTO:
     graph = GraphApiMapper.to_domain(dto)
-    created = _graph_service.create(graph)
+    created = await _graph_service.create(graph)
     return GraphApiMapper.to_dto(created)
 
 
 @router.post("/generate", response_model=GraphDTO, status_code=201, dependencies=_write)
-def generate_graph(dto: GraphGenerateDTO) -> GraphDTO:
+async def generate_graph(dto: GraphGenerateDTO) -> GraphDTO:
     """Generate a distance graph from Maps data, deduplicating by hash."""
     try:
-        graph = _graph_service.generate(dto.location_ids)
+        graph = await _graph_service.generate(dto.location_ids)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return GraphApiMapper.to_dto(graph)
 
 
 @router.get("/{graph_id}", response_model=GraphDTO, dependencies=_read)
-def get_graph(graph_id: str, response: Response) -> GraphDTO:
+async def get_graph(graph_id: str, response: Response) -> GraphDTO:
     response.headers["Cache-Control"] = "max-age=3600"
     try:
-        graph = _graph_service.get(graph_id)
+        graph = await _graph_service.get(graph_id)
     except GraphNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return GraphApiMapper.to_dto(graph)
 
 
 @router.get("/", response_model=list[GraphDTO], dependencies=_read)
-def list_graphs(response: Response) -> list[GraphDTO]:
+async def list_graphs(response: Response) -> list[GraphDTO]:
     response.headers["Cache-Control"] = "max-age=3600"
-    return [GraphApiMapper.to_dto(g) for g in _graph_service.list_all()]
+    return [GraphApiMapper.to_dto(g) for g in await _graph_service.list_all()]
 
 
 @router.delete("/{graph_id}", status_code=204, dependencies=_delete)
-def delete_graph(graph_id: str) -> None:
+async def delete_graph(graph_id: str) -> None:
     try:
-        _graph_service.delete(graph_id)
+        await _graph_service.delete(graph_id)
     except GraphNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

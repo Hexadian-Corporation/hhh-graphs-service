@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import jwt as pyjwt
 import pytest
@@ -39,12 +39,12 @@ def _sample_graph() -> Graph:
 
 
 @pytest.fixture()
-def mock_graph_service() -> MagicMock:
-    return MagicMock()
+def mock_graph_service() -> AsyncMock:
+    return AsyncMock()
 
 
 @pytest.fixture()
-def client(mock_graph_service: MagicMock) -> TestClient:
+def client(mock_graph_service: AsyncMock) -> TestClient:
     with patch("src.infrastructure.config.dependencies.MongoClient"):
         from fastapi import FastAPI
         from hexadian_auth_common.fastapi import (
@@ -70,7 +70,7 @@ def client(mock_graph_service: MagicMock) -> TestClient:
 
 
 class TestGenerateEndpoint:
-    def test_calls_service_generate_with_correct_args(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+    def test_calls_service_generate_with_correct_args(self, client: TestClient, mock_graph_service: AsyncMock) -> None:
         mock_graph_service.generate.return_value = _sample_graph()
         token = _make_token(permissions=["hhh:graphs:write"])
         client.post(
@@ -80,7 +80,7 @@ class TestGenerateEndpoint:
         )
         mock_graph_service.generate.assert_called_once_with(["loc1", "loc2"])
 
-    def test_response_includes_hash_field(self, client: TestClient, mock_graph_service: MagicMock) -> None:
+    def test_response_includes_hash_field(self, client: TestClient, mock_graph_service: AsyncMock) -> None:
         mock_graph_service.generate.return_value = _sample_graph()
         token = _make_token(permissions=["hhh:graphs:write"])
         resp = client.post(

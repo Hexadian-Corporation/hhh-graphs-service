@@ -5,17 +5,16 @@ from src.domain.exceptions.graph_exceptions import LocationNotFoundError, Servic
 
 
 class HttpMapsClient(MapsClient):
-    def __init__(self, base_url: str, timeout: float = 10.0) -> None:
+    def __init__(self, client: httpx.AsyncClient, base_url: str) -> None:
+        self._client = client
         self._base_url = base_url.rstrip("/")
-        self._timeout = timeout
 
-    def get_locations(self, location_ids: list[str]) -> list[LocationData]:
+    async def get_locations(self, location_ids: list[str]) -> list[LocationData]:
         locations = []
         # Fetch each location individually (Maps API is GET /locations/{id})
         for loc_id in location_ids:
-            resp = httpx.get(
+            resp = await self._client.get(
                 f"{self._base_url}/locations/{loc_id}",
-                timeout=self._timeout,
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -29,16 +28,15 @@ class HttpMapsClient(MapsClient):
                 )
         return locations
 
-    def get_distances_for_locations(self, location_ids: list[str]) -> list[DistanceData]:
+    async def get_distances_for_locations(self, location_ids: list[str]) -> list[DistanceData]:
         distances = []
         seen_pairs: set[tuple[str, str]] = set()
         # For each location, fetch its distances and filter to only include
         # edges where BOTH endpoints are in the requested location_ids set
         loc_id_set = set(location_ids)
         for loc_id in location_ids:
-            resp = httpx.get(
+            resp = await self._client.get(
                 f"{self._base_url}/locations/{loc_id}/distances",
-                timeout=self._timeout,
             )
             if resp.status_code == 200:
                 for d in resp.json():
@@ -61,10 +59,9 @@ class HttpMapsClient(MapsClient):
                     )
         return distances
 
-    def get_location_ancestors(self, location_id: str) -> list[LocationData]:
-        resp = httpx.get(
+    async def get_location_ancestors(self, location_id: str) -> list[LocationData]:
+        resp = await self._client.get(
             f"{self._base_url}/locations/{location_id}/ancestors",
-            timeout=self._timeout,
         )
         if resp.status_code == 404:
             raise LocationNotFoundError(location_id)
@@ -80,11 +77,10 @@ class HttpMapsClient(MapsClient):
             for loc in resp.json()
         ]
 
-    def get_wormhole_distances(self) -> list[DistanceData]:
-        resp = httpx.get(
+    async def get_wormhole_distances(self) -> list[DistanceData]:
+        resp = await self._client.get(
             f"{self._base_url}/distances",
             params={"travel_type": "wormhole"},
-            timeout=self._timeout,
         )
         if resp.status_code >= 500:
             raise ServiceUnavailableError("maps-service", resp.status_code)

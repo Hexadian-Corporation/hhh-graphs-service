@@ -44,4 +44,6 @@ class TestAppModuleIndexes:
             module = AppModule(settings)
             module.configure()
 
-        mock_http_maps_client.assert_called_once_with(base_url="http://maps:8003")
+        call_kwargs = mock_http_maps_client.call_args
+        assert call_kwargs.kwargs["base_url"] == "http://maps:8003"
+        assert "client" in call_kwargs.kwargs

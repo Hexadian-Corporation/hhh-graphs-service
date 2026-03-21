@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock
 
 from bson import ObjectId
 
@@ -20,22 +20,22 @@ def _make_doc(hash_value: str = "abc") -> dict:
 
 
 class TestFindByHash:
-    def test_returns_graph_when_found(self) -> None:
-        collection = MagicMock()
+    async def test_returns_graph_when_found(self) -> None:
+        collection = AsyncMock()
         collection.find_one.return_value = _make_doc("deadbeef")
         repo = MongoGraphRepository(collection=collection)
 
-        result = repo.find_by_hash("deadbeef")
+        result = await repo.find_by_hash("deadbeef")
 
         collection.find_one.assert_called_once_with({"hash": "deadbeef"})
         assert isinstance(result, Graph)
         assert result.hash == "deadbeef"
 
-    def test_returns_none_when_not_found(self) -> None:
-        collection = MagicMock()
+    async def test_returns_none_when_not_found(self) -> None:
+        collection = AsyncMock()
         collection.find_one.return_value = None
         repo = MongoGraphRepository(collection=collection)
 
-        result = repo.find_by_hash("missing")
+        result = await repo.find_by_hash("missing")
 
         assert result is None

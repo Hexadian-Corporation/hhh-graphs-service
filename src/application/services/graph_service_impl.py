@@ -1,3 +1,4 @@
+import asyncio
 from itertools import combinations
 
 from cachetools import TTLCache
@@ -12,6 +13,8 @@ from src.domain.services.system_path_finder import find_cross_system_paths
 
 _LIST_ALL_KEY = "all"
 
+_MAX_CONCURRENT_HTTP = 10
+
 
 class GraphServiceImpl(GraphService):
     def __init__(self, repository: GraphRepository, maps_client: MapsClient) -> None:
@@ -20,37 +23,38 @@ class GraphServiceImpl(GraphService):
         self._graph_cache: TTLCache[str, Graph] = TTLCache(maxsize=64, ttl=3600)
         self._list_cache: TTLCache[str, list[Graph]] = TTLCache(maxsize=1, ttl=3600)
         self._pairwise_cache: TTLCache[str, Graph] = TTLCache(maxsize=256, ttl=3600)
+        self._http_semaphore = asyncio.Semaphore(_MAX_CONCURRENT_HTTP)
 
     def _invalidate_cache(self) -> None:
         self._graph_cache.clear()
         self._list_cache.clear()
         self._pairwise_cache.clear()
 
-    def create(self, graph: Graph) -> Graph:
-        result = self._repository.save(graph)
+    async def create(self, graph: Graph) -> Graph:
+        result = await self._repository.save(graph)
         self._invalidate_cache()
         return result
 
-    def get(self, graph_id: str) -> Graph:
+    async def get(self, graph_id: str) -> Graph:
         cached = self._graph_cache.get(graph_id)
         if cached is not None:
             return cached
-        graph = self._repository.find_by_id(graph_id)
+        graph = await self._repository.find_by_id(graph_id)
         if graph is None:
             raise GraphNotFoundError(graph_id)
         self._graph_cache[graph_id] = graph
         return graph
 
-    def list_all(self) -> list[Graph]:
+    async def list_all(self) -> list[Graph]:
         cached = self._list_cache.get(_LIST_ALL_KEY)
         if cached is not None:
             return cached
-        graphs = self._repository.find_all()
+        graphs = await self._repository.find_all()
         self._list_cache[_LIST_ALL_KEY] = graphs
         return graphs
 
-    def delete(self, graph_id: str) -> None:
-        if not self._repository.delete(graph_id):
+    async def delete(self, graph_id: str) -> None:
+        if not await self._repository.delete(graph_id):
             raise GraphNotFoundError(graph_id)
         self._invalidate_cache()
 
@@ -58,21 +62,21 @@ class GraphServiceImpl(GraphService):
     # Pairwise graph composition with two-level hash caching (#41)
     # ------------------------------------------------------------------
 
-    def generate(self, location_ids: list[str]) -> Graph:
+    async def generate(self, location_ids: list[str]) -> Graph:
         if len(location_ids) == 0:
             raise ValueError("At least one location ID is required")
 
         # --- Level 1: full-request hash ---
         sorted_ids = sorted(set(location_ids))
         full_hash = compute_hash(sorted_ids)
-        existing = self._repository.find_by_hash(full_hash)
+        existing = await self._repository.find_by_hash(full_hash)
         if existing is not None:
             self._graph_cache[existing.id] = existing
             return existing
 
         # --- Special case: single location ---
         if len(sorted_ids) == 1:
-            locations = self._maps_client.get_locations(sorted_ids)
+            locations = await self._maps_client.get_locations(sorted_ids)
             label = locations[0].name if locations else sorted_ids[0]
             graph = Graph(
                 name="distance-graph-1n-0e",
@@ -80,31 +84,30 @@ class GraphServiceImpl(GraphService):
                 nodes=[Node(location_id=sorted_ids[0], label=label)],
                 edges=[],
             )
-            created = self._repository.save(graph)
+            created = await self._repository.save(graph)
             self._invalidate_cache()
             return created
 
-        # --- Pairwise loop ---
-        pairwise_graphs: list[Graph] = []
-
-        for id_a, id_b in combinations(sorted_ids, 2):
-            # Level 2: pairwise hash (in-memory cache only)
+        # --- Pairwise loop (parallelized with asyncio.gather) ---
+        async def _build_if_not_cached(id_a: str, id_b: str) -> Graph:
             pair_hash = compute_hash([id_a, id_b])
             cached_pair = self._pairwise_cache.get(pair_hash)
             if cached_pair is not None:
-                pairwise_graphs.append(cached_pair)
-                continue
-
-            pair_graph = self._build_pairwise_graph(id_a, id_b, pair_hash)
+                return cached_pair
+            pair_graph = await self._build_pairwise_graph(id_a, id_b, pair_hash)
             self._pairwise_cache[pair_hash] = pair_graph
-            pairwise_graphs.append(pair_graph)
+            return pair_graph
+
+        pairwise_graphs = list(
+            await asyncio.gather(*[_build_if_not_cached(a, b) for a, b in combinations(sorted_ids, 2)])
+        )
 
         # --- Merge & persist ---
         merged = self._merge_graphs(pairwise_graphs)
         merged.hash = full_hash
         merged.name = f"distance-graph-{len(merged.nodes)}n-{len(merged.edges)}e"
 
-        created = self._repository.save(merged)
+        created = await self._repository.save(merged)
         self._invalidate_cache()
         return created
 
@@ -127,11 +130,13 @@ class GraphServiceImpl(GraphService):
         system_id = filtered[-1].parent_id if filtered else None
         return tree_ids, system_id
 
-    def _build_pairwise_graph(self, id_a: str, id_b: str, pair_hash: str) -> Graph:
+    async def _build_pairwise_graph(self, id_a: str, id_b: str, pair_hash: str) -> Graph:
         """Build and return a pairwise graph for two locations (not persisted)."""
-        # Ancestor chains (one API call each)
-        ancestors_a = self._maps_client.get_location_ancestors(id_a)
-        ancestors_b = self._maps_client.get_location_ancestors(id_b)
+        # Phase 1: independent fetches in parallel (ancestors for both locations)
+        ancestors_a, ancestors_b = await asyncio.gather(
+            self._throttled(self._maps_client.get_location_ancestors(id_a)),
+            self._throttled(self._maps_client.get_location_ancestors(id_b)),
+        )
 
         tree_a, system_a = self._resolve_tree_and_system(ancestors_a)
         tree_b, system_b = self._resolve_tree_and_system(ancestors_b)
@@ -141,7 +146,7 @@ class GraphServiceImpl(GraphService):
 
         # Cross-system: add gateway nodes via BFS
         if system_a and system_b and system_a != system_b:
-            wormhole_distances = self._maps_client.get_wormhole_distances()
+            wormhole_distances = await self._throttled(self._maps_client.get_wormhole_distances())
 
             # Collect gateway IDs & fetch their LocationData + parent systems
             gw_ids: set[str] = set()
@@ -149,9 +154,11 @@ class GraphServiceImpl(GraphService):
                 gw_ids.add(wd.from_location_id)
                 gw_ids.add(wd.to_location_id)
 
-            gw_locations = self._maps_client.get_locations(sorted(gw_ids))
+            gw_locations = await self._throttled(self._maps_client.get_locations(sorted(gw_ids)))
             parent_ids = {loc.parent_id for loc in gw_locations if loc.parent_id} - gw_ids
-            parent_locations = self._maps_client.get_locations(sorted(parent_ids)) if parent_ids else []
+            parent_locations = (
+                await self._throttled(self._maps_client.get_locations(sorted(parent_ids))) if parent_ids else []
+            )
 
             locations_by_id: dict[str, LocationData] = {loc.id: loc for loc in gw_locations + parent_locations}
 
@@ -160,12 +167,12 @@ class GraphServiceImpl(GraphService):
             loc_dict.update(locations_by_id)
 
         # Fetch edges for all nodes in the set
-        distances = self._maps_client.get_distances_for_locations(sorted(node_ids))
+        distances = await self._throttled(self._maps_client.get_distances_for_locations(sorted(node_ids)))
 
         # Fetch labels for any node IDs not yet in loc_dict
         missing_ids = node_ids - set(loc_dict)
         if missing_ids:
-            for loc in self._maps_client.get_locations(sorted(missing_ids)):
+            for loc in await self._throttled(self._maps_client.get_locations(sorted(missing_ids))):
                 loc_dict[loc.id] = loc
 
         nodes = [Node(location_id=nid, label=loc_dict[nid].name if nid in loc_dict else nid) for nid in node_ids]
@@ -186,6 +193,11 @@ class GraphServiceImpl(GraphService):
             nodes=nodes,
             edges=edges,
         )
+
+    async def _throttled(self, coro: object) -> object:
+        """Run a coroutine under the HTTP concurrency semaphore."""
+        async with self._http_semaphore:
+            return await coro  # type: ignore[misc]
 
     @staticmethod
     def _merge_graphs(graphs: list[Graph]) -> Graph:
