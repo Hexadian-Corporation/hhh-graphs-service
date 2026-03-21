@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
 from pymongo.collection import Collection
@@ -27,7 +27,7 @@ _DIST_BC = DistanceData(from_location_id="loc-b", to_location_id="loc-c", distan
 
 
 def _configure_mock(
-    mock: MagicMock,
+    mock: AsyncMock,
     locations: list[LocationData],
     distances: list[DistanceData],
 ) -> None:
@@ -44,7 +44,7 @@ def _configure_mock(
 class TestGraphGenerate:
     """POST /graphs/generate with valid location_ids → graph with nodes and edges."""
 
-    def test_creates_graph_with_nodes_and_edges(self, client: TestClient, maps_mock: MagicMock) -> None:
+    def test_creates_graph_with_nodes_and_edges(self, client: TestClient, maps_mock: AsyncMock) -> None:
         _configure_mock(maps_mock, [_LOC_A, _LOC_B], [_DIST_AB, _DIST_BA])
 
         resp = client.post(
@@ -59,7 +59,7 @@ class TestGraphGenerate:
         assert len(body["edges"]) == 2
         assert body["_id"] is not None
 
-    def test_maps_client_called_for_locations_and_distances(self, client: TestClient, maps_mock: MagicMock) -> None:
+    def test_maps_client_called_for_locations_and_distances(self, client: TestClient, maps_mock: AsyncMock) -> None:
         _configure_mock(maps_mock, [_LOC_A, _LOC_B], [_DIST_AB])
 
         client.post(
@@ -71,7 +71,7 @@ class TestGraphGenerate:
         assert maps_mock.get_location_ancestors.call_count == 2
         maps_mock.get_distances_for_locations.assert_called_once_with(["loc-a", "loc-b"])
 
-    def test_edges_have_source_target_and_distance(self, client: TestClient, maps_mock: MagicMock) -> None:
+    def test_edges_have_source_target_and_distance(self, client: TestClient, maps_mock: AsyncMock) -> None:
         _configure_mock(maps_mock, [_LOC_A, _LOC_B], [_DIST_AB])
 
         resp = client.post(
@@ -85,7 +85,7 @@ class TestGraphGenerate:
         assert edge["target_id"] == "loc-b"
         assert edge["distance"] == 42.5
 
-    def test_nodes_correspond_to_location_ids(self, client: TestClient, maps_mock: MagicMock) -> None:
+    def test_nodes_correspond_to_location_ids(self, client: TestClient, maps_mock: AsyncMock) -> None:
         _configure_mock(maps_mock, [_LOC_A, _LOC_B], [_DIST_AB])
 
         resp = client.post(
@@ -97,7 +97,7 @@ class TestGraphGenerate:
         node_ids = {n["location_id"] for n in resp.json()["nodes"]}
         assert node_ids == {"loc-a", "loc-b"}
 
-    def test_generates_deterministic_hash(self, client: TestClient, maps_mock: MagicMock) -> None:
+    def test_generates_deterministic_hash(self, client: TestClient, maps_mock: AsyncMock) -> None:
         _configure_mock(maps_mock, [_LOC_A, _LOC_B], [_DIST_AB])
 
         resp = client.post(
@@ -110,7 +110,7 @@ class TestGraphGenerate:
         assert body["hash"] != ""
         assert len(body["hash"]) == 64  # SHA-256 hex digest
 
-    def test_no_real_http_calls_to_maps_service(self, client: TestClient, maps_mock: MagicMock) -> None:
+    def test_no_real_http_calls_to_maps_service(self, client: TestClient, maps_mock: AsyncMock) -> None:
         """The mock prevents any real HTTP call to maps-service."""
         _configure_mock(maps_mock, [_LOC_A, _LOC_B], [_DIST_AB])
 
@@ -132,7 +132,7 @@ class TestGraphGenerate:
 class TestGraphHashDeduplication:
     """Hash-based deduplication: same inputs → same graph, different → new graph."""
 
-    def test_same_location_ids_return_same_graph(self, client: TestClient, maps_mock: MagicMock) -> None:
+    def test_same_location_ids_return_same_graph(self, client: TestClient, maps_mock: AsyncMock) -> None:
         _configure_mock(maps_mock, [_LOC_A, _LOC_B], [_DIST_AB])
         payload = {"location_ids": ["loc-a", "loc-b"]}
 
@@ -142,7 +142,7 @@ class TestGraphHashDeduplication:
         assert resp1.json()["_id"] == resp2.json()["_id"]
         assert resp1.json()["hash"] == resp2.json()["hash"]
 
-    def test_different_location_ids_create_different_graph(self, client: TestClient, maps_mock: MagicMock) -> None:
+    def test_different_location_ids_create_different_graph(self, client: TestClient, maps_mock: AsyncMock) -> None:
         # First generation: A + B
         _configure_mock(maps_mock, [_LOC_A, _LOC_B], [_DIST_AB])
         resp1 = client.post(
@@ -163,7 +163,7 @@ class TestGraphHashDeduplication:
         assert resp1.json()["hash"] != resp2.json()["hash"]
 
     def test_only_one_graph_in_db_after_two_identical_generations(
-        self, client: TestClient, maps_mock: MagicMock, collection: Collection
+        self, client: TestClient, maps_mock: AsyncMock, collection: Collection
     ) -> None:
         _configure_mock(maps_mock, [_LOC_A, _LOC_B], [_DIST_AB])
         payload = {"location_ids": ["loc-a", "loc-b"]}
@@ -174,7 +174,7 @@ class TestGraphHashDeduplication:
         assert collection.count_documents({}) == 1
 
     def test_two_graphs_in_db_after_different_generations(
-        self, client: TestClient, maps_mock: MagicMock, collection: Collection
+        self, client: TestClient, maps_mock: AsyncMock, collection: Collection
     ) -> None:
         # First generation
         _configure_mock(maps_mock, [_LOC_A, _LOC_B], [_DIST_AB])
@@ -201,7 +201,7 @@ class TestGraphHashDeduplication:
 class TestGraphGenerateEdgeCases:
     """Edge cases for POST /graphs/generate."""
 
-    def test_empty_location_ids_returns_400(self, client: TestClient, maps_mock: MagicMock) -> None:
+    def test_empty_location_ids_returns_400(self, client: TestClient, maps_mock: AsyncMock) -> None:
         maps_mock.get_locations.return_value = []
 
         resp = client.post(
@@ -212,7 +212,7 @@ class TestGraphGenerateEdgeCases:
 
         assert resp.status_code == 400
 
-    def test_single_location_id_creates_graph_without_edges(self, client: TestClient, maps_mock: MagicMock) -> None:
+    def test_single_location_id_creates_graph_without_edges(self, client: TestClient, maps_mock: AsyncMock) -> None:
         _configure_mock(maps_mock, [_LOC_A], [])
 
         resp = client.post(
@@ -227,7 +227,7 @@ class TestGraphGenerateEdgeCases:
         assert body["nodes"][0]["location_id"] == "loc-a"
         assert body["edges"] == []
 
-    def test_two_locations_with_no_distances(self, client: TestClient, maps_mock: MagicMock) -> None:
+    def test_two_locations_with_no_distances(self, client: TestClient, maps_mock: AsyncMock) -> None:
         _configure_mock(maps_mock, [_LOC_A, _LOC_B], [])
 
         resp = client.post(
