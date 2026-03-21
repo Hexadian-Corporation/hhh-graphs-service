@@ -52,9 +52,11 @@ src/
 
 ## Domain Model
 
-- **Graph** — `id`, `name`, `nodes` (list[Node]), `edges` (list[Edge])
+- **Graph** — `id`, `name`, `hash` (order-independent, from sorted location IDs — works for pairwise [2 IDs] and merged [N IDs]), `nodes` (list[Node]), `edges` (list[Edge]), `stale`, `stale_reason`, `stale_since`
 - **Node** — `location_id` (references maps-service Location.id), `label`
-- **Edge** — `source_id`, `target_id`, `distance`, `travel_type` (quantum/scm/on_foot), `travel_time_seconds`
+- **Edge** — `source_id`, `target_id`, `distance`, `travel_type` (quantum/scm/on_foot/wormhole), `travel_time_seconds`
+
+Graph generation uses **two-level hash caching**: (1) full-request hash `hash(sorted(ALL location_ids))` checked first — if the merged graph exists, return immediately; (2) pairwise hash `hash(sorted([id_A, id_B]))` per pair — reuse cached pairwise graphs. See graphs#35 for full algorithm.
 
 ## Environment Variables
 
