@@ -8,6 +8,8 @@
 
 <critical>**PR title:** The PR title MUST be identical to the originating issue title. Set the final PR title (remove the `[WIP]` prefix) before beginning implementation, not after.</critical>
 
+<critical>**Async & Parallelization:** All new Python code MUST be async-first. See `async-and-parallelization.instructions.md` for mandatory rules on motor, asyncio.gather, and parallelization patterns.</critical>
+
 # Copilot Instructions — hhh-graphs-service
 
 ## Project Context
