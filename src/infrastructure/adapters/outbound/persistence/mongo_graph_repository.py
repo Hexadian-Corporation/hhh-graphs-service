@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from bson import ObjectId
+from bson.errors import InvalidId
 from motor.motor_asyncio import AsyncIOMotorCollection
 
 from src.application.ports.outbound.graph_repository import GraphRepository
@@ -12,17 +13,30 @@ class MongoGraphRepository(GraphRepository):
     def __init__(self, collection: AsyncIOMotorCollection) -> None:
         self._collection = collection
 
+    @staticmethod
+    def _to_object_id(value: str) -> ObjectId | None:
+        try:
+            return ObjectId(value)
+        except InvalidId:
+            return None
+
     async def save(self, graph: Graph) -> Graph:
         doc = GraphPersistenceMapper.to_document(graph)
         if graph.id:
-            await self._collection.replace_one({"_id": ObjectId(graph.id)}, doc, upsert=True)
+            oid = self._to_object_id(graph.id)
+            if oid is None:
+                return graph
+            await self._collection.replace_one({"_id": oid}, doc, upsert=True)
             return graph
         result = await self._collection.insert_one(doc)
         graph.id = str(result.inserted_id)
         return graph
 
     async def find_by_id(self, graph_id: str) -> Graph | None:
-        doc = await self._collection.find_one({"_id": ObjectId(graph_id)})
+        oid = self._to_object_id(graph_id)
+        if oid is None:
+            return None
+        doc = await self._collection.find_one({"_id": oid})
         if doc is None:
             return None
         return GraphPersistenceMapper.to_domain(doc)
@@ -31,7 +45,10 @@ class MongoGraphRepository(GraphRepository):
         return [GraphPersistenceMapper.to_domain(doc) async for doc in self._collection.find()]
 
     async def delete(self, graph_id: str) -> bool:
-        result = await self._collection.delete_one({"_id": ObjectId(graph_id)})
+        oid = self._to_object_id(graph_id)
+        if oid is None:
+            return False
+        result = await self._collection.delete_one({"_id": oid})
         return result.deleted_count > 0
 
     async def find_by_hash(self, hash_value: str) -> Graph | None:
