@@ -251,3 +251,58 @@ class TestDeepParentChain:
 
         assert sorted(result.gateway_node_ids) == ["gw-x", "gw-y"]
         assert result.intermediate_system_ids == []
+
+
+# ---------------------------------------------------------------------------
+# Edge case: Gateway not in locations_by_id (unresolvable)
+# ---------------------------------------------------------------------------
+
+
+class TestUnresolvableGateway:
+    """Wormhole references a gateway ID not present in locations_by_id."""
+
+    def test_unresolvable_gateway_is_skipped(self) -> None:
+        """When a gateway cannot be resolved, the wormhole edge is ignored."""
+        result = find_cross_system_paths(
+            "stanton",
+            "pyro",
+            [_wormhole("unknown-gw", "ps-gw")],
+            _TRIANGLE_LOCATIONS,
+        )
+
+        # The edge with unknown-gw can't resolve → no paths found
+        assert result.gateway_node_ids == []
+        assert result.intermediate_system_ids == []
+
+    def test_valid_edges_still_work_alongside_unresolvable(self) -> None:
+        """Valid wormhole edges are used even when some edges are unresolvable."""
+        wormholes = [
+            _wormhole("missing-gw", "ps-gw"),  # unresolvable from-gateway
+            _wormhole("sp-gw", "ps-gw"),  # valid
+        ]
+        result = find_cross_system_paths("stanton", "pyro", wormholes, _TRIANGLE_LOCATIONS)
+
+        assert "sp-gw" in result.gateway_node_ids
+        assert "ps-gw" in result.gateway_node_ids
+
+
+# ---------------------------------------------------------------------------
+# Edge case: Both gateways resolve to the same system (intra-system wormhole)
+# ---------------------------------------------------------------------------
+
+
+class TestSameSystemGateways:
+    """Wormhole whose both endpoints resolve to the same system."""
+
+    def test_intra_system_wormhole_is_ignored(self) -> None:
+        """A wormhole between two gateways in the same system adds no edges."""
+        same_sys_gw1 = _loc("same1", "Intra GW 1", "gateway", parent_id="stanton")
+        same_sys_gw2 = _loc("same2", "Intra GW 2", "gateway", parent_id="stanton")
+        locations = {**_TRIANGLE_LOCATIONS, same_sys_gw1.id: same_sys_gw1, same_sys_gw2.id: same_sys_gw2}
+        wormholes = [_wormhole("same1", "same2")]  # both in Stanton
+
+        result = find_cross_system_paths("stanton", "pyro", wormholes, locations)
+
+        # The intra-system wormhole creates no system-level edge → no path
+        assert result.gateway_node_ids == []
+        assert result.intermediate_system_ids == []
