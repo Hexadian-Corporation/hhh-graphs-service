@@ -20,7 +20,7 @@ class HttpMapsClient(MapsClient):
                 data = resp.json()
                 locations.append(
                     LocationData(
-                        id=data["_id"],
+                        id=data["id"],
                         name=data["name"],
                         location_type=data.get("location_type", ""),
                         parent_id=data.get("parent_id"),
@@ -69,7 +69,7 @@ class HttpMapsClient(MapsClient):
             raise ServiceUnavailableError("maps-service", resp.status_code)
         return [
             LocationData(
-                id=loc["_id"],
+                id=loc["id"],
                 name=loc["name"],
                 location_type=loc.get("location_type", ""),
                 parent_id=loc.get("parent_id"),

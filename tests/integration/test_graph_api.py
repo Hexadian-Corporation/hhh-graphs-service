@@ -84,9 +84,9 @@ class TestPostGraph:
         resp = client.post("/graphs/", json=_minimal_graph_payload(), headers=_WRITE)
         body = resp.json()
 
-        assert body["_id"] is not None
-        assert isinstance(body["_id"], str)
-        assert len(body["_id"]) == 24  # ObjectId hex string
+        assert body["id"] is not None
+        assert isinstance(body["id"], str)
+        assert len(body["id"]) == 24  # ObjectId hex string
 
     def test_returns_201(self, client: TestClient) -> None:
         resp = client.post("/graphs/", json=_minimal_graph_payload(), headers=_WRITE)
@@ -120,7 +120,7 @@ class TestGetGraphs:
         resp = client.get("/graphs/", headers=_READ)
         graph = resp.json()[0]
 
-        assert "_id" in graph
+        assert "id" in graph
         assert "name" in graph
         assert "hash" in graph
         assert "nodes" in graph
@@ -136,12 +136,12 @@ class TestGetGraphs:
 class TestGetGraphById:
     def test_get_existing_graph(self, client: TestClient) -> None:
         created = client.post("/graphs/", json=_full_graph_payload(), headers=_WRITE).json()
-        graph_id = created["_id"]
+        graph_id = created["id"]
 
         resp = client.get(f"/graphs/{graph_id}", headers=_READ)
         assert resp.status_code == 200
         body = resp.json()
-        assert body["_id"] == graph_id
+        assert body["id"] == graph_id
         assert body["name"] == "StantonGraph"
         assert len(body["nodes"]) == 2
         assert len(body["edges"]) == 1
@@ -158,7 +158,7 @@ class TestGetGraphById:
 class TestDeleteGraph:
     def test_delete_existing_graph(self, client: TestClient) -> None:
         created = client.post("/graphs/", json=_minimal_graph_payload(), headers=_WRITE).json()
-        graph_id = created["_id"]
+        graph_id = created["id"]
 
         resp = client.delete(f"/graphs/{graph_id}", headers=_DELETE)
         assert resp.status_code == 204
@@ -170,7 +170,7 @@ class TestDeleteGraph:
 
     def test_get_after_delete_returns_404(self, client: TestClient) -> None:
         created = client.post("/graphs/", json=_minimal_graph_payload(), headers=_WRITE).json()
-        graph_id = created["_id"]
+        graph_id = created["id"]
 
         del_resp = client.delete(f"/graphs/{graph_id}", headers=_DELETE)
         assert del_resp.status_code == 204
@@ -185,7 +185,7 @@ class TestDeleteGraph:
 class TestCacheControlHeaders:
     def test_get_graph_by_id_has_cache_control(self, client: TestClient) -> None:
         created = client.post("/graphs/", json=_minimal_graph_payload(), headers=_WRITE).json()
-        graph_id = created["_id"]
+        graph_id = created["id"]
 
         resp = client.get(f"/graphs/{graph_id}", headers=_READ)
         assert resp.status_code == 200

@@ -18,7 +18,7 @@ class TestHttpMapsClientGetLocations:
     async def test_returns_location_data_on_200(self) -> None:
         mock_http = AsyncMock()
         client = HttpMapsClient(client=mock_http, base_url="http://maps-service")
-        payload = {"_id": "loc1", "name": "Stanton", "location_type": "system", "parent_id": None}
+        payload = {"id": "loc1", "name": "Stanton", "location_type": "system", "parent_id": None}
         mock_http.get.return_value = _make_response(200, payload)
 
         result = await client.get_locations(["loc1"])
@@ -39,13 +39,13 @@ class TestHttpMapsClientGetLocations:
         mock_http = AsyncMock()
         client = HttpMapsClient(client=mock_http, base_url="http://maps-service")
         payloads = [
-            {"_id": "loc1", "name": "Stanton", "location_type": "system", "parent_id": None},
-            {"_id": "loc2", "name": "Hurston", "location_type": "planet", "parent_id": "loc1"},
+            {"id": "loc1", "name": "Stanton", "location_type": "system", "parent_id": None},
+            {"id": "loc2", "name": "Hurston", "location_type": "planet", "parent_id": "loc1"},
         ]
 
         def _side_effect(url: str) -> MagicMock:
             loc_id = url.split("/")[-1]
-            payload = next(p for p in payloads if p["_id"] == loc_id)
+            payload = next(p for p in payloads if p["id"] == loc_id)
             return _make_response(200, payload)
 
         mock_http.get.side_effect = _side_effect
@@ -69,7 +69,7 @@ class TestHttpMapsClientGetLocations:
     async def test_optional_fields_default_when_absent(self) -> None:
         mock_http = AsyncMock()
         client = HttpMapsClient(client=mock_http, base_url="http://maps-service")
-        payload = {"_id": "loc1", "name": "Stanton"}
+        payload = {"id": "loc1", "name": "Stanton"}
         mock_http.get.return_value = _make_response(200, payload)
 
         result = await client.get_locations(["loc1"])
@@ -196,8 +196,8 @@ class TestHttpMapsClientGetLocationAncestors:
         mock_http = AsyncMock()
         client = HttpMapsClient(client=mock_http, base_url="http://maps-service")
         payload = [
-            {"_id": "area18-uuid", "name": "Area 18", "location_type": "city", "parent_id": "arccorp-uuid"},
-            {"_id": "arccorp-uuid", "name": "ArcCorp", "location_type": "planet", "parent_id": "stanton-uuid"},
+            {"id": "area18-uuid", "name": "Area 18", "location_type": "city", "parent_id": "arccorp-uuid"},
+            {"id": "arccorp-uuid", "name": "ArcCorp", "location_type": "planet", "parent_id": "stanton-uuid"},
         ]
         mock_http.get.return_value = _make_response(200, payload)
 
@@ -213,7 +213,7 @@ class TestHttpMapsClientGetLocationAncestors:
         mock_http = AsyncMock()
         client = HttpMapsClient(client=mock_http, base_url="http://maps-service")
         payload = [
-            {"_id": "arcl1-uuid", "name": "ARC-L1", "location_type": "lagrange_point", "parent_id": "stanton-uuid"}
+            {"id": "arcl1-uuid", "name": "ARC-L1", "location_type": "lagrange_point", "parent_id": "stanton-uuid"}
         ]
         mock_http.get.return_value = _make_response(200, payload)
 
@@ -255,7 +255,7 @@ class TestHttpMapsClientGetLocationAncestors:
     async def test_optional_fields_default_when_absent(self) -> None:
         mock_http = AsyncMock()
         client = HttpMapsClient(client=mock_http, base_url="http://maps-service")
-        payload = [{"_id": "loc1", "name": "SomeLocation"}]
+        payload = [{"id": "loc1", "name": "SomeLocation"}]
         mock_http.get.return_value = _make_response(200, payload)
 
         result = await client.get_location_ancestors("loc1")

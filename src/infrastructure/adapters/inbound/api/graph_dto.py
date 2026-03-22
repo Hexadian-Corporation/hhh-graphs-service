@@ -23,7 +23,7 @@ class GraphGenerateDTO(BaseModel):
 
 
 class GraphDTO(BaseModel):
-    id: str | None = Field(default=None, alias="_id")
+    id: str | None = None
     name: str
     hash: str = ""
     nodes: list[NodeDTO] = Field(default_factory=list)
@@ -31,5 +31,3 @@ class GraphDTO(BaseModel):
     stale: bool = False
     stale_reason: str | None = None
     stale_since: datetime | None = None
-
-    model_config = {"populate_by_name": True}

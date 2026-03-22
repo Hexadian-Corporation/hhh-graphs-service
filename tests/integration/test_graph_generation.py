@@ -57,7 +57,7 @@ class TestGraphGenerate:
         body = resp.json()
         assert len(body["nodes"]) == 2
         assert len(body["edges"]) == 2
-        assert body["_id"] is not None
+        assert body["id"] is not None
 
     def test_maps_client_called_for_locations_and_distances(self, client: TestClient, maps_mock: AsyncMock) -> None:
         _configure_mock(maps_mock, [_LOC_A, _LOC_B], [_DIST_AB])
@@ -139,7 +139,7 @@ class TestGraphHashDeduplication:
         resp1 = client.post("/graphs/generate", json=payload, headers=_WRITE)
         resp2 = client.post("/graphs/generate", json=payload, headers=_WRITE)
 
-        assert resp1.json()["_id"] == resp2.json()["_id"]
+        assert resp1.json()["id"] == resp2.json()["id"]
         assert resp1.json()["hash"] == resp2.json()["hash"]
 
     def test_different_location_ids_create_different_graph(self, client: TestClient, maps_mock: AsyncMock) -> None:
@@ -159,7 +159,7 @@ class TestGraphHashDeduplication:
             headers=_WRITE,
         )
 
-        assert resp1.json()["_id"] != resp2.json()["_id"]
+        assert resp1.json()["id"] != resp2.json()["id"]
         assert resp1.json()["hash"] != resp2.json()["hash"]
 
     def test_only_one_graph_in_db_after_two_identical_generations(

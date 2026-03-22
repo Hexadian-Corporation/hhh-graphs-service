@@ -25,7 +25,7 @@ class GraphApiMapper:
     @staticmethod
     def to_dto(graph: Graph) -> GraphDTO:
         return GraphDTO(
-            _id=graph.id,
+            id=graph.id,
             name=graph.name,
             hash=graph.hash,
             nodes=[NodeDTO(location_id=n.location_id, label=n.label) for n in graph.nodes],
