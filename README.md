@@ -6,7 +6,17 @@ Graph and connectivity management microservice for **H³ – Hexadian Hauling He
 
 ## Domain
 
-Manages the travel graph connecting locations: nodes represent locations and edges represent travel routes with distances, travel types (quantum, SCM), and estimated travel times.
+Manages the travel graph connecting locations: nodes represent locations and edges represent travel routes with distances, travel types (quantum, SCM, wormhole), and estimated travel times.
+
+### Graph Generation — Pairwise Composition
+
+The `POST /graphs/generate` endpoint builds a distance graph from a set of location IDs using a **pairwise composition algorithm** with **two-level hash caching**:
+
+1. **Level 1 — Full-request hash**: `hash(sorted(location_ids))` is checked first. If a merged graph already exists for that exact set of locations, it is returned immediately.
+2. **Level 2 — Pairwise hash**: For each pair `(A, B)` from the input, `hash(sorted([A, B]))` is checked. Cached pairwise graphs are reused; only missing pairs are generated.
+3. **Tree building**: For each pair, `tree(A)` and `tree(B)` ancestor chains are fetched (excluding the star/system root), and their union forms the node set for the pair.
+4. **Cross-system BFS**: If two locations are in different systems, a BFS over wormhole gateway connections discovers all non-cyclic paths between the systems, adding gateway nodes to the graph.
+5. **Merge**: All pairwise graphs are merged (union of nodes, edges deduplicated by `(source_id, target_id)`) into the final graph, which is persisted with the full-request hash.
 
 ## Stack
 
@@ -81,6 +91,7 @@ All endpoints (except `/health`) require a valid JWT Bearer token. Tokens are va
 |---|---|
 | `GET /health` | **Public** |
 | `POST /graphs/` | `hhh:graphs:write` |
+| `POST /graphs/generate` | `hhh:graphs:write` |
 | `GET /graphs/` | `hhh:graphs:read` |
 | `GET /graphs/{id}` | `hhh:graphs:read` |
 | `DELETE /graphs/{id}` | `hhh:graphs:delete` |
@@ -90,6 +101,7 @@ All endpoints (except `/health`) require a valid JWT Bearer token. Tokens are va
 | Method | Endpoint | Description |
 |---|---|---|
 | `POST` | `/graphs/` | Create a graph |
+| `POST` | `/graphs/generate` | Generate a graph from location IDs (pairwise composition) |
 | `GET` | `/graphs/{id}` | Get graph by ID |
 | `GET` | `/graphs/` | List all graphs |
 | `DELETE` | `/graphs/{id}` | Delete a graph |

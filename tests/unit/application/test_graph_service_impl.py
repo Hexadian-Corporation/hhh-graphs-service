@@ -541,3 +541,53 @@ class TestGenerate:
         mock_repo.find_all.return_value = [_make_graph(), _make_graph(graph_id="new")]
         await service.list_all()
         assert mock_repo.find_all.call_count == 2
+
+    # --- Missing node labels ---
+
+    async def test_cross_system_missing_gateway_labels_fetched(
+        self, service: GraphServiceImpl, mock_repo: AsyncMock, mock_maps_client: AsyncMock
+    ) -> None:
+        """When gateway IDs are not in loc_dict, their labels are fetched via get_locations."""
+        mock_repo.find_by_hash.return_value = None
+        mock_maps_client.get_location_ancestors.side_effect = [
+            [LocationData(id="loc1", name="Loc A", location_type="station", parent_id="stanton")],
+            [LocationData(id="loc3", name="Loc C", location_type="station", parent_id="pyro")],
+        ]
+        mock_maps_client.get_wormhole_distances.return_value = [
+            DistanceData(from_location_id="sp-gw", to_location_id="ps-gw", distance=300.0, travel_type="wormhole"),
+        ]
+        # First get_locations call returns gateway LocationData (for resolving systems)
+        # but deliberately omits one gateway to simulate incomplete data.
+        # Second call returns parent systems.
+        # Third call (missing_ids) fills in the missing label.
+        mock_maps_client.get_locations.side_effect = [
+            # gw_locations — return only ps-gw (sp-gw is "missing" here but still
+            # returned — to keep system resolution working, include both)
+            [
+                LocationData(id="sp-gw", name="Stanton-Pyro GW", location_type="gateway", parent_id="stanton"),
+                LocationData(id="ps-gw", name="Pyro-Stanton GW", location_type="gateway", parent_id="pyro"),
+            ],
+            # parent_locations
+            [
+                LocationData(id="stanton", name="Stanton", location_type="system", parent_id=None),
+                LocationData(id="pyro", name="Pyro", location_type="system", parent_id=None),
+            ],
+            # missing_ids — used to fill labels for tree nodes not in loc_dict
+            [],
+        ]
+        mock_maps_client.get_distances_for_locations.return_value = [
+            DistanceData(from_location_id="loc1", to_location_id="sp-gw", distance=50.0, travel_type="quantum"),
+            DistanceData(from_location_id="sp-gw", to_location_id="ps-gw", distance=300.0, travel_type="wormhole"),
+            DistanceData(from_location_id="ps-gw", to_location_id="loc3", distance=80.0, travel_type="quantum"),
+        ]
+        mock_repo.save.side_effect = lambda g: g
+
+        result = await service.generate(["loc1", "loc3"])
+
+        # Verify the graph was generated successfully with all nodes
+        node_ids = {n.location_id for n in result.nodes}
+        assert {"loc1", "loc3", "sp-gw", "ps-gw"} <= node_ids
+        # Verify labels are correctly resolved
+        labels_by_id = {n.location_id: n.label for n in result.nodes}
+        assert labels_by_id["sp-gw"] == "Stanton-Pyro GW"
+        assert labels_by_id["ps-gw"] == "Pyro-Stanton GW"
