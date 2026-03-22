@@ -26,4 +26,4 @@ class GraphRepository(ABC):
 
         Returns the number of graphs updated.
         """
-        ...
+        ...  # pragma: no cover

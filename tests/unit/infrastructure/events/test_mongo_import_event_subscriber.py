@@ -157,3 +157,79 @@ class TestWatchRetry:
             await asyncio.wait_for(subscriber._task, timeout=2.0)
 
         assert call_count == 2
+
+
+class TestWatch:
+    async def test_processes_event_and_saves_token(self) -> None:
+        graph_service = AsyncMock()
+        graph_service.mark_graphs_stale.return_value = 1
+        subscriber = _make_subscriber(graph_service)
+        subscriber._graphs_db[_RESUME_TOKENS_COLLECTION].update_one = AsyncMock()
+
+        event = {"_id": {"_data": "token1"}, "fullDocument": {"location_ids": ["loc1"]}}
+
+        async def _fake_stream():  # noqa: ANN202
+            yield event
+
+        watch_cm = AsyncMock()
+        watch_cm.__aenter__.return_value = _fake_stream()
+        subscriber._maps_db["import_events"].watch.return_value = watch_cm
+
+        await subscriber._watch(None)
+
+        graph_service.mark_graphs_stale.assert_called_once_with(location_ids=["loc1"], reason="data_import")
+        subscriber._graphs_db[_RESUME_TOKENS_COLLECTION].update_one.assert_called_once()
+
+    async def test_passes_resume_token_when_provided(self) -> None:
+        subscriber = _make_subscriber()
+
+        async def _empty_stream():  # noqa: ANN202
+            return
+            yield  # make it an async generator
+
+        watch_cm = AsyncMock()
+        watch_cm.__aenter__.return_value = _empty_stream()
+        subscriber._maps_db["import_events"].watch.return_value = watch_cm
+
+        resume_token = {"_data": "stored-token"}
+        await subscriber._watch(resume_token)
+
+        call_kwargs = subscriber._maps_db["import_events"].watch.call_args
+        assert call_kwargs.kwargs.get("resume_after") == resume_token
+
+    async def test_stops_processing_when_stop_event_is_set(self) -> None:
+        graph_service = AsyncMock()
+        subscriber = _make_subscriber(graph_service)
+        subscriber._stop_event.set()
+
+        event = {"_id": {"_data": "token1"}, "fullDocument": {"location_ids": ["loc1"]}}
+
+        async def _fake_stream():  # noqa: ANN202
+            yield event
+
+        watch_cm = AsyncMock()
+        watch_cm.__aenter__.return_value = _fake_stream()
+        subscriber._maps_db["import_events"].watch.return_value = watch_cm
+
+        await subscriber._watch(None)
+
+        graph_service.mark_graphs_stale.assert_not_called()
+
+
+class TestRunCancelledError:
+    async def test_run_exits_on_cancelled_error_from_watch(self) -> None:
+        """CancelledError in _watch causes _run to exit cleanly (no retry)."""
+        subscriber = _make_subscriber()
+
+        async def _raise_cancelled(resume_token):  # noqa: ANN001, ARG001
+            raise asyncio.CancelledError
+
+        with (
+            patch.object(subscriber, "_watch", side_effect=_raise_cancelled),
+            patch.object(subscriber, "_load_resume_token", new_callable=AsyncMock, return_value=None),
+        ):
+            await subscriber.start()
+            task = subscriber._task
+            await asyncio.wait_for(task, timeout=1.0)
+
+        assert task.done()

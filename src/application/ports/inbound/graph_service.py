@@ -27,4 +27,4 @@ class GraphService(ABC):
 
         Returns the number of graphs updated.
         """
-        ...
+        ...  # pragma: no cover
