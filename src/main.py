@@ -13,6 +13,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from opyoid import Injector
 
 from src.application.ports.inbound.graph_service import GraphService
+from src.application.ports.inbound.import_event_subscriber import ImportEventSubscriber
 from src.infrastructure.adapters.inbound.api.graph_router import init_router, router
 from src.infrastructure.config.dependencies import AppModule
 from src.infrastructure.config.settings import Settings
@@ -26,11 +27,14 @@ def create_app() -> FastAPI:
     jwt_auth = injector.inject(JWTAuthDependency)
     motor_client = injector.inject(AsyncIOMotorClient)
     http_client = injector.inject(httpx.AsyncClient)
+    subscriber = injector.inject(ImportEventSubscriber)
     init_router(graph_service)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):  # noqa: ARG001
+        await subscriber.start()
         yield
+        await subscriber.stop()
         await http_client.aclose()
         motor_client.close()
 

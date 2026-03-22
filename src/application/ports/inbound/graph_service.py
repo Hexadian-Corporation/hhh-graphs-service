@@ -20,3 +20,11 @@ class GraphService(ABC):
     async def generate(self, location_ids: list[str]) -> Graph:
         """Generate a distance graph from Maps data, deduplicating by hash."""
         ...
+
+    @abstractmethod
+    async def mark_graphs_stale(self, location_ids: list[str], reason: str) -> int:
+        """Mark all graphs containing any of the given location IDs as stale.
+
+        Returns the number of graphs updated.
+        """
+        ...

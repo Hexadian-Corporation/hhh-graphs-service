@@ -8,6 +8,10 @@ Graph and connectivity management microservice for **H³ – Hexadian Hauling He
 
 Manages the travel graph connecting locations: nodes represent locations and edges represent travel routes with distances, travel types (quantum, SCM, wormhole), and estimated travel times.
 
+### Import Event Subscription
+
+The service subscribes to the maps-service `import_events` collection via MongoDB Change Streams. When new import events arrive, all graphs whose nodes include any of the imported location IDs are automatically marked **stale** (with `stale_reason: "data_import"` and a UTC timestamp). Resume tokens are persisted in the graphs database so the subscriber picks up from its last position after a restart.
+
 ### Graph Generation — Pairwise Composition
 
 The `POST /graphs/generate` endpoint builds a distance graph from a set of location IDs using a **pairwise composition algorithm** with **two-level hash caching**:
@@ -74,6 +78,7 @@ uv run hhh up
 |---|---|---|
 | `HHH_GRAPHS_MONGO_URI` | `mongodb://localhost:27017` | MongoDB connection string |
 | `HHH_GRAPHS_MONGO_DB` | `hhh_graphs` | Database name |
+| `HHH_GRAPHS_MAPS_MONGO_DB` | `hhh_maps` | Maps-service database name (watched for import events) |
 | `HHH_GRAPHS_HOST` | `0.0.0.0` | Host address the service binds to |
 | `HHH_GRAPHS_PORT` | `8004` | Service port |
 | `HHH_GRAPHS_MAPS_SERVICE_URL` | `http://localhost:8003` | Base URL of the maps-service |

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCollection
 
@@ -37,3 +39,10 @@ class MongoGraphRepository(GraphRepository):
         if doc is None:
             return None
         return GraphPersistenceMapper.to_domain(doc)
+
+    async def mark_stale_by_location_ids(self, location_ids: list[str], reason: str, since: datetime) -> int:
+        result = await self._collection.update_many(
+            {"nodes.location_id": {"$in": location_ids}},
+            {"$set": {"stale": True, "stale_reason": reason, "stale_since": since}},
+        )
+        return result.modified_count
