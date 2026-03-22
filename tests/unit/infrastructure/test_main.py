@@ -1,7 +1,7 @@
 """Tests for src.main create_app() wiring."""
 
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -168,3 +168,25 @@ class TestCreateApp:
 
         assert allowed_resp.headers.get("access-control-allow-origin") == "http://custom-frontend:4000"
         assert "access-control-allow-origin" not in rejected_resp.headers
+
+    def test_lifespan_starts_and_stops_subscriber(self) -> None:
+        """Lifespan must call subscriber.start() on startup and stop() on shutdown."""
+        mock_mongo = _make_mock_mongo()
+        mock_subscriber = MagicMock()
+        mock_subscriber.start = AsyncMock()
+        mock_subscriber.stop = AsyncMock()
+
+        with (
+            patch.dict(os.environ, {"HEXADIAN_AUTH_JWT_SECRET": SECRET}),
+            patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_mongo),
+            patch(
+                "src.infrastructure.config.dependencies.MongoImportEventSubscriber",
+                return_value=mock_subscriber,
+            ),
+        ):
+            from src.main import create_app
+
+            app = create_app()
+            with TestClient(app):
+                mock_subscriber.start.assert_called_once()
+            mock_subscriber.stop.assert_called_once()

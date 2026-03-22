@@ -591,3 +591,50 @@ class TestGenerate:
         labels_by_id = {n.location_id: n.label for n in result.nodes}
         assert labels_by_id["sp-gw"] == "Stanton-Pyro GW"
         assert labels_by_id["ps-gw"] == "Pyro-Stanton GW"
+
+
+class TestMarkGraphsStale:
+    async def test_delegates_to_repository_with_utc_timestamp(
+        self, service: GraphServiceImpl, mock_repo: AsyncMock
+    ) -> None:
+        mock_repo.mark_stale_by_location_ids.return_value = 2
+
+        result = await service.mark_graphs_stale(location_ids=["loc1", "loc2"], reason="data_import")
+
+        assert result == 2
+        call_kwargs = mock_repo.mark_stale_by_location_ids.call_args
+        assert call_kwargs.kwargs["location_ids"] == ["loc1", "loc2"]
+        assert call_kwargs.kwargs["reason"] == "data_import"
+        assert call_kwargs.kwargs["since"].tzinfo is not None
+
+    async def test_invalidates_cache_when_graphs_updated(self, service: GraphServiceImpl, mock_repo: AsyncMock) -> None:
+        mock_repo.find_all.return_value = [_make_graph()]
+        await service.list_all()
+        assert mock_repo.find_all.call_count == 1
+
+        mock_repo.mark_stale_by_location_ids.return_value = 1
+        await service.mark_graphs_stale(location_ids=["loc1"], reason="data_import")
+
+        mock_repo.find_all.return_value = []
+        await service.list_all()
+        assert mock_repo.find_all.call_count == 2
+
+    async def test_does_not_invalidate_cache_when_no_graphs_updated(
+        self, service: GraphServiceImpl, mock_repo: AsyncMock
+    ) -> None:
+        mock_repo.find_all.return_value = [_make_graph()]
+        await service.list_all()
+        assert mock_repo.find_all.call_count == 1
+
+        mock_repo.mark_stale_by_location_ids.return_value = 0
+        await service.mark_graphs_stale(location_ids=["unknown"], reason="data_import")
+
+        await service.list_all()
+        assert mock_repo.find_all.call_count == 1
+
+    async def test_returns_zero_when_no_graphs_match(self, service: GraphServiceImpl, mock_repo: AsyncMock) -> None:
+        mock_repo.mark_stale_by_location_ids.return_value = 0
+
+        result = await service.mark_graphs_stale(location_ids=["nonexistent"], reason="data_import")
+
+        assert result == 0

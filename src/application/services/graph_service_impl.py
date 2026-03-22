@@ -1,4 +1,5 @@
 import asyncio
+from datetime import UTC, datetime
 from itertools import combinations
 
 from cachetools import TTLCache
@@ -198,6 +199,17 @@ class GraphServiceImpl(GraphService):
         """Run a coroutine under the HTTP concurrency semaphore."""
         async with self._http_semaphore:
             return await coro  # type: ignore[misc]
+
+    async def mark_graphs_stale(self, location_ids: list[str], reason: str) -> int:
+        """Mark all graphs containing any of the given location IDs as stale."""
+        count = await self._repository.mark_stale_by_location_ids(
+            location_ids=location_ids,
+            reason=reason,
+            since=datetime.now(UTC),
+        )
+        if count > 0:
+            self._invalidate_cache()
+        return count
 
     @staticmethod
     def _merge_graphs(graphs: list[Graph]) -> Graph:

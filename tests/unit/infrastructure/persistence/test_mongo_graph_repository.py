@@ -39,3 +39,44 @@ class TestFindByHash:
         result = await repo.find_by_hash("missing")
 
         assert result is None
+
+
+class TestMarkStaleByLocationIds:
+    async def test_calls_update_many_with_correct_filter(self) -> None:
+        from datetime import UTC, datetime
+
+        collection = AsyncMock()
+        update_result = AsyncMock()
+        update_result.modified_count = 2
+        collection.update_many.return_value = update_result
+        repo = MongoGraphRepository(collection=collection)
+
+        since = datetime(2026, 1, 1, tzinfo=UTC)
+        result = await repo.mark_stale_by_location_ids(
+            location_ids=["loc1", "loc2"],
+            reason="data_import",
+            since=since,
+        )
+
+        assert result == 2
+        collection.update_many.assert_called_once_with(
+            {"nodes.location_id": {"$in": ["loc1", "loc2"]}},
+            {"$set": {"stale": True, "stale_reason": "data_import", "stale_since": since}},
+        )
+
+    async def test_returns_zero_when_no_matching_graphs(self) -> None:
+        collection = AsyncMock()
+        update_result = AsyncMock()
+        update_result.modified_count = 0
+        collection.update_many.return_value = update_result
+        repo = MongoGraphRepository(collection=collection)
+
+        from datetime import UTC, datetime
+
+        result = await repo.mark_stale_by_location_ids(
+            location_ids=["unknown"],
+            reason="data_import",
+            since=datetime.now(UTC),
+        )
+
+        assert result == 0
