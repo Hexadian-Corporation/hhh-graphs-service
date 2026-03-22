@@ -14,6 +14,7 @@ dependencies = [
     "cachetools>=7.0.5",
     "hexadian-auth-common[fastapi]",
     "httpx>=0.28",
+    "hhh-events",
 ]
 
 [project.optional-dependencies]
@@ -57,3 +58,4 @@ exclude_lines = [
 
 [tool.uv.sources]
 hexadian-auth-common = { git = "https://github.com/Hexadian-Corporation/hexadian-auth-common.git" }
+hhh-events = { path = "../hhh-events" }

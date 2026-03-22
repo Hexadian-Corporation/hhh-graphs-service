@@ -380,6 +380,30 @@ fastapi = [
 ]
 
 [[package]]
+name = "hhh-events"
+version = "0.1.0"
+source = { directory = "../hhh-events" }
+dependencies = [
+    { name = "motor" },
+    { name = "pydantic" },
+    { name = "pymongo" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "diff-cover", marker = "extra == 'dev'", specifier = ">=9.0" },
+    { name = "motor", specifier = ">=3.6,<4" },
+    { name = "pydantic", specifier = ">=2.10" },
+    { name = "pymongo", specifier = ">=4.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.25" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9" },
+    { name = "testcontainers", extras = ["mongodb"], marker = "extra == 'dev'", specifier = ">=4.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
 name = "hhh-graphs-service"
 version = "0.1.0"
 source = { editable = "." }
@@ -387,6 +411,7 @@ dependencies = [
     { name = "cachetools" },
     { name = "fastapi" },
     { name = "hexadian-auth-common", extra = ["fastapi"] },
+    { name = "hhh-events" },
     { name = "httpx" },
     { name = "motor" },
     { name = "opyoid" },
@@ -411,6 +436,7 @@ requires-dist = [
     { name = "diff-cover", marker = "extra == 'dev'", specifier = ">=9.0" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "hexadian-auth-common", extras = ["fastapi"], git = "https://github.com/Hexadian-Corporation/hexadian-auth-common.git" },
+    { name = "hhh-events", directory = "../hhh-events" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "motor", specifier = ">=3.6,<4" },
     { name = "opyoid", specifier = ">=0.6,<3.0" },

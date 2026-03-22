@@ -6,7 +6,8 @@ class Settings(BaseSettings):
     app_name: str = "hhh-graphs-service"
     mongo_uri: str = "mongodb://localhost:27017"
     mongo_db: str = "hhh_graphs"
-    maps_mongo_db: str = "hhh_maps"
+    events_mongo_uri: str = "mongodb://localhost:27017/?replicaSet=rs0&readPreference=nearest"
+    events_db: str = "hhh_events"
     host: str = "0.0.0.0"
     port: int = 8004
     jwt_secret: str = Field(default="change-me-in-production", validation_alias="HEXADIAN_AUTH_JWT_SECRET")

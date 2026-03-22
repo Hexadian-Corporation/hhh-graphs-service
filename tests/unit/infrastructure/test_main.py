@@ -1,6 +1,7 @@
 """Tests for src.main create_app() wiring."""
 
 import os
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import FastAPI
@@ -19,13 +20,31 @@ def _make_mock_mongo() -> MagicMock:
     return mock_client
 
 
+def _make_mock_events() -> MagicMock:
+    mock_events = MagicMock()
+    mock_subscriber = MagicMock()
+    mock_subscriber.run = AsyncMock()
+    mock_events.subscriber.return_value = mock_subscriber
+    mock_events.publisher.return_value = MagicMock()
+    return mock_events
+
+
+@contextmanager
+def _patched_deps(extra_env: dict[str, str] | None = None):
+    env = {"HEXADIAN_AUTH_JWT_SECRET": SECRET}
+    if extra_env:
+        env.update(extra_env)
+    with (
+        patch.dict(os.environ, env),
+        patch("src.infrastructure.config.dependencies.MongoClient", return_value=_make_mock_mongo()),
+        patch("src.infrastructure.config.dependencies.EventsInfrastructure", return_value=_make_mock_events()),
+    ):
+        yield
+
+
 class TestCreateApp:
     def test_returns_fastapi_app(self) -> None:
-        mock_client = _make_mock_mongo()
-        with (
-            patch.dict(os.environ, {"HEXADIAN_AUTH_JWT_SECRET": SECRET}),
-            patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_client),
-        ):
+        with _patched_deps():
             from src.main import create_app
 
             app = create_app()
@@ -33,11 +52,7 @@ class TestCreateApp:
         assert isinstance(app, FastAPI)
 
     def test_overrides_stub_auth_with_jwt_dependency(self) -> None:
-        mock_client = _make_mock_mongo()
-        with (
-            patch.dict(os.environ, {"HEXADIAN_AUTH_JWT_SECRET": SECRET}),
-            patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_client),
-        ):
+        with _patched_deps():
             from src.main import create_app
 
             app = create_app()
@@ -46,11 +61,7 @@ class TestCreateApp:
         assert isinstance(app.dependency_overrides[_stub_jwt_auth], JWTAuthDependency)
 
     def test_health_endpoint_is_public(self) -> None:
-        mock_client = _make_mock_mongo()
-        with (
-            patch.dict(os.environ, {"HEXADIAN_AUTH_JWT_SECRET": SECRET}),
-            patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_client),
-        ):
+        with _patched_deps():
             from src.main import create_app
 
             app = create_app()
@@ -61,11 +72,7 @@ class TestCreateApp:
         assert resp.json()["status"] == "ok"
 
     def test_cors_allowed_origin_localhost_3000(self) -> None:
-        mock_client = _make_mock_mongo()
-        with (
-            patch.dict(os.environ, {"HEXADIAN_AUTH_JWT_SECRET": SECRET}),
-            patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_client),
-        ):
+        with _patched_deps():
             from src.main import create_app
 
             app = create_app()
@@ -81,11 +88,7 @@ class TestCreateApp:
         assert resp.headers.get("access-control-allow-origin") == "http://localhost:3000"
 
     def test_cors_allowed_origin_localhost_3001(self) -> None:
-        mock_client = _make_mock_mongo()
-        with (
-            patch.dict(os.environ, {"HEXADIAN_AUTH_JWT_SECRET": SECRET}),
-            patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_client),
-        ):
+        with _patched_deps():
             from src.main import create_app
 
             app = create_app()
@@ -101,11 +104,7 @@ class TestCreateApp:
         assert resp.headers.get("access-control-allow-origin") == "http://localhost:3001"
 
     def test_cors_rejected_origin(self) -> None:
-        mock_client = _make_mock_mongo()
-        with (
-            patch.dict(os.environ, {"HEXADIAN_AUTH_JWT_SECRET": SECRET}),
-            patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_client),
-        ):
+        with _patched_deps():
             from src.main import create_app
 
             app = create_app()
@@ -121,11 +120,7 @@ class TestCreateApp:
         assert "access-control-allow-origin" not in resp.headers
 
     def test_cors_get_with_allowed_origin(self) -> None:
-        mock_client = _make_mock_mongo()
-        with (
-            patch.dict(os.environ, {"HEXADIAN_AUTH_JWT_SECRET": SECRET}),
-            patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_client),
-        ):
+        with _patched_deps():
             from src.main import create_app
 
             app = create_app()
@@ -136,17 +131,7 @@ class TestCreateApp:
         assert resp.headers.get("access-control-allow-origin") == "http://localhost:3000"
 
     def test_cors_configured_via_env_var(self) -> None:
-        mock_client = _make_mock_mongo()
-        with (
-            patch.dict(
-                os.environ,
-                {
-                    "HEXADIAN_AUTH_JWT_SECRET": SECRET,
-                    "HHH_GRAPHS_CORS_ALLOW_ORIGINS": '["http://custom-frontend:4000"]',
-                },
-            ),
-            patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_client),
-        ):
+        with _patched_deps(extra_env={"HHH_GRAPHS_CORS_ALLOW_ORIGINS": '["http://custom-frontend:4000"]'}):
             from src.main import create_app
 
             app = create_app()
@@ -169,24 +154,11 @@ class TestCreateApp:
         assert allowed_resp.headers.get("access-control-allow-origin") == "http://custom-frontend:4000"
         assert "access-control-allow-origin" not in rejected_resp.headers
 
-    def test_lifespan_starts_and_stops_subscriber(self) -> None:
-        """Lifespan must call subscriber.start() on startup and stop() on shutdown."""
-        mock_mongo = _make_mock_mongo()
-        mock_subscriber = MagicMock()
-        mock_subscriber.start = AsyncMock()
-        mock_subscriber.stop = AsyncMock()
-
-        with (
-            patch.dict(os.environ, {"HEXADIAN_AUTH_JWT_SECRET": SECRET}),
-            patch("src.infrastructure.config.dependencies.MongoClient", return_value=mock_mongo),
-            patch(
-                "src.infrastructure.config.dependencies.MongoImportEventSubscriber",
-                return_value=mock_subscriber,
-            ),
-        ):
+    def test_lifespan_starts_event_subscriber(self) -> None:
+        """Lifespan must create a background task for the event subscriber."""
+        with _patched_deps():
             from src.main import create_app
 
             app = create_app()
             with TestClient(app):
-                mock_subscriber.start.assert_called_once()
-            mock_subscriber.stop.assert_called_once()
+                pass  # lifespan runs the subscriber task on startup

@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+import asyncio
 import httpx
 import uvicorn
 from fastapi import FastAPI
@@ -9,11 +10,11 @@ from hexadian_auth_common.fastapi import (
     _stub_jwt_auth,
     register_exception_handlers,
 )
+from hhh_events import EventSubscriber, StaleMarkingHandler
 from motor.motor_asyncio import AsyncIOMotorClient
 from opyoid import Injector
 
 from src.application.ports.inbound.graph_service import GraphService
-from src.application.ports.inbound.import_event_subscriber import ImportEventSubscriber
 from src.infrastructure.adapters.inbound.api.graph_router import init_router, router
 from src.infrastructure.config.dependencies import AppModule
 from src.infrastructure.config.settings import Settings
@@ -27,14 +28,16 @@ def create_app() -> FastAPI:
     jwt_auth = injector.inject(JWTAuthDependency)
     motor_client = injector.inject(AsyncIOMotorClient)
     http_client = injector.inject(httpx.AsyncClient)
-    subscriber = injector.inject(ImportEventSubscriber)
+    subscriber = injector.inject(EventSubscriber)
+    stale_handler = injector.inject(StaleMarkingHandler)
     init_router(graph_service)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):  # noqa: ARG001
-        await subscriber.start()
+        task = asyncio.create_task(subscriber.run(stale_handler))
         yield
-        await subscriber.stop()
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
         await http_client.aclose()
         motor_client.close()
 
